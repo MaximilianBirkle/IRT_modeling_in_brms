@@ -1,0 +1,106 @@
+---
+title: "Assignment: IRT Modeling in brms"
+author: "Maximilian Birkle"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    number_sections: true
+    theme: flatly
+    highlight: tango
+  pdf_document:
+    toc: true
+    number_sections: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo      = TRUE,
+  warning   = FALSE,
+  message   = FALSE,
+  cache     = TRUE,
+  fig.align = "center",
+  fig.width = 7,
+  fig.height = 5
+)
+```
+
+---
+
+**Course:** DS 201 Machine Learning and Causal Interference
+**Program:** Mannheim Master in Social Data Science
+**Student ID:** 1831999
+
+---
+
+# Setup
+
+## Libraries
+
+```{r libraries}
+library(tidyverse)
+library(brms)
+library(lme4)
+library(TAM)
+library(bayesplot)
+
+# ggplot theme consistent with the paper
+theme_set(bayesplot::theme_default())
+
+# allow Stan models to be compiled once and reused
+rstan::rstan_options(auto_write = TRUE)
+options(mc.cores = parallel::detectCores())
+
+# folder for cached model fits
+if (!dir.exists("models")) dir.create("models")
+```
+
+## Load Data
+
+```{r load-data}
+# Replace the path below with the actual CSV file you receive
+# df <- read_csv("data/your_data.csv")
+
+# Preview the data once loaded:
+# head(df)
+# glimpse(df)
+```
+
+---
+
+# Task 1
+
+*[Task description will be added once the assignment is released.]*
+
+```{r task-1}
+# your code here
+```
+
+---
+
+# Task 2
+
+*[Task description will be added once the assignment is released.]*
+
+```{r task-2}
+# your code here
+```
+
+---
+
+# Task 3
+
+*[Task description will be added once the assignment is released.]*
+
+```{r task-3}
+# your code here
+```
+
+---
+
+# Session Info
+
+```{r session-info}
+sessionInfo()
+```
