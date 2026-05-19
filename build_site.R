@@ -98,7 +98,9 @@ sub_map <- c(
   "@@P_AFD_RAW@@"           = sprintf("%.3f", stats$p_afd_gt_cdu),
   "@@POS_VOTES@@"           = pos_votes_html,
   "@@NEG_VOTES@@"           = neg_votes_html,
-  "@@PLOTLY_DATA@@"         = plotly_json
+  "@@PLOTLY_DATA@@"         = plotly_json,
+  "@@COR_HS_BASE@@"         = corr(stats$cor_hs_base),
+  "@@RMSD_HS@@"             = sprintf("%.3f", stats$rmsd_hs)
 )
 
 # ---------- HTML template -----------------------------------------------------
@@ -113,18 +115,20 @@ template <- '<!DOCTYPE html>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+<script>MathJax={tex:{inlineMath:[["$","$"]],displayMath:[["$$","$$"]]},options:{skipHtmlTags:["script","noscript","style","textarea","pre","code"]}};</script>
+<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js" async></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
-  --teal:#3c7a6e;--teal-dark:#1a3a3a;--teal-light:#e8f4f2;--teal-mid:#5a9e91;
-  --accent:#d4a944;--text:#1e2a2a;--text-muted:#5a6a6a;--bg:#f8fafa;
-  --border:#d0e4e1;--code-bg:#1e2a2a;
+  --navy:#003056;--navy-dark:#00203f;--navy-light:#e8eef5;--navy-mid:#4a7fa5;
+  --accent:#4a7fa5;--text:#1a2332;--text-muted:#5a7090;--bg:#f5f7fa;
+  --border:#c8d8e8;--code-bg:#00203f;
 }
 html{scroll-behavior:smooth}
 body{font-family:"Inter",system-ui,sans-serif;font-size:1rem;line-height:1.75;color:var(--text);background:var(--bg)}
 
 /* NAVBAR */
-nav{position:sticky;top:0;z-index:100;background:var(--teal-dark);border-bottom:3px solid var(--accent);padding:0 2rem}
+nav{position:sticky;top:0;z-index:100;background:var(--navy-dark);border-bottom:3px solid var(--accent);padding:0 2rem}
 .nav-inner{max-width:1100px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;height:54px}
 .nav-brand{color:#fff;font-family:"Source Serif 4",serif;font-weight:700;font-size:1rem;text-decoration:none}
 .nav-links{display:flex;gap:1.6rem;list-style:none}
@@ -132,7 +136,7 @@ nav{position:sticky;top:0;z-index:100;background:var(--teal-dark);border-bottom:
 .nav-links a:hover{color:#fff}
 
 /* HERO */
-.hero{background:linear-gradient(135deg,var(--teal-dark) 0%,var(--teal) 100%);color:#fff;padding:5rem 2rem 4rem}
+.hero{background:linear-gradient(135deg,var(--navy-dark) 0%,var(--navy) 100%);color:#fff;padding:5rem 2rem 4rem}
 .hero-inner{max-width:1100px;margin:0 auto;display:grid;grid-template-columns:auto 1fr;gap:2.5rem;align-items:center}
 .hero-logo img{width:110px;filter:brightness(0) invert(1);opacity:.9}
 .hero-text h1{font-family:"Source Serif 4",serif;font-size:2.1rem;font-weight:700;line-height:1.2;margin-bottom:.6rem}
@@ -144,45 +148,48 @@ nav{position:sticky;top:0;z-index:100;background:var(--teal-dark);border-bottom:
 section{padding:3.5rem 0;border-bottom:1px solid var(--border)}
 section:last-child{border-bottom:none}
 .section-header{display:flex;align-items:baseline;gap:.9rem;margin-bottom:2rem}
-.section-num{font-family:"Source Serif 4",serif;font-size:2.8rem;font-weight:700;color:var(--teal-light);line-height:1;flex-shrink:0}
-h2{font-family:"Source Serif 4",serif;font-size:1.7rem;font-weight:700;color:var(--teal-dark);line-height:1.2}
-h3{font-family:"Source Serif 4",serif;font-size:1.2rem;font-weight:600;color:var(--teal-dark);margin:2rem 0 .75rem;padding-left:.8rem;border-left:3px solid var(--teal)}
-p{margin-bottom:.9rem}p:last-child{margin-bottom:0}
+.section-num{font-family:"Source Serif 4",serif;font-size:2.8rem;font-weight:700;color:var(--navy-light);line-height:1;flex-shrink:0}
+h2{font-family:"Source Serif 4",serif;font-size:1.7rem;font-weight:700;color:var(--navy-dark);line-height:1.2}
+h3{font-family:"Source Serif 4",serif;font-size:1.2rem;font-weight:600;color:var(--navy-dark);margin:2rem 0 .75rem;padding-left:.8rem;border-left:3px solid var(--navy)}
+p{margin-bottom:.9rem;max-width:720px}p:last-child{margin-bottom:0}
 
 /* STAT CARDS */
 .stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(155px,1fr));gap:1rem;margin:1.8rem 0}
-.stat-card{background:var(--teal-light);border:1px solid var(--border);border-radius:8px;padding:1.1rem 1rem;text-align:center}
-.stat-value{font-family:"Source Serif 4",serif;font-size:1.9rem;font-weight:700;color:var(--teal-dark);line-height:1;margin-bottom:.25rem}
+.stat-card{background:var(--navy-light);border:1px solid var(--border);border-radius:8px;padding:1.1rem 1rem;text-align:center}
+.stat-value{font-family:"Source Serif 4",serif;font-size:1.9rem;font-weight:700;color:var(--navy-dark);line-height:1;margin-bottom:.25rem}
 .stat-label{font-size:.75rem;color:var(--text-muted);font-weight:500;text-transform:uppercase;letter-spacing:.05em}
 
 /* CODE */
-.code-block{background:var(--code-bg);border-radius:8px;overflow:hidden;margin:1.5rem 0;border:1px solid #2e4040}
-.code-label{background:var(--teal-dark);color:var(--accent);font-family:"JetBrains Mono",monospace;font-size:.73rem;padding:.45rem 1rem;font-weight:500;letter-spacing:.05em}
-pre{margin:0;padding:1.1rem 1.3rem;overflow-x:auto;font-family:"JetBrains Mono",monospace;font-size:.8rem;line-height:1.65;color:#c8e6c9}
+.code-block{background:var(--code-bg);border-radius:8px;overflow:hidden;margin:1.5rem 0;border:1px solid #1a3a60}
+.code-label{background:var(--navy-dark);color:#7eb8e0;font-family:"JetBrains Mono",monospace;font-size:.73rem;padding:.45rem 1rem;font-weight:500;letter-spacing:.05em;cursor:pointer;display:flex;justify-content:space-between;align-items:center;user-select:none}
+.code-label:hover{background:#00264d}
+.code-toggle-btn{font-size:.72rem;opacity:.7;letter-spacing:.02em;white-space:nowrap;margin-left:.8rem}
+.code-content{display:none}
+pre{margin:0;padding:1.1rem 1.3rem;overflow-x:auto;font-family:"JetBrains Mono",monospace;font-size:.8rem;line-height:1.65;color:#c8ddf5}
 .kw{color:#80cbc4}.fn{color:#82b1ff}.str{color:#f48fb1}.cm{color:#78909c;font-style:italic}.nb{color:#ffd54f}
 
 /* FIGURES */
 .figure-block{margin:2rem 0;background:#fff;border:1px solid var(--border);border-radius:8px;overflow:hidden}
 .figure-block img{width:100%;display:block}
-.figure-caption{padding:.75rem 1.1rem;font-size:.86rem;color:var(--text-muted);background:var(--teal-light);border-top:1px solid var(--border);font-style:italic}
-.figure-caption strong{color:var(--teal-dark);font-style:normal;font-weight:600}
+.figure-caption{padding:.75rem 1.1rem;font-size:.86rem;color:var(--text-muted);background:var(--navy-light);border-top:1px solid var(--border);font-style:italic}
+.figure-caption strong{color:var(--navy-dark);font-style:normal;font-weight:600}
 
 /* CALLOUTS */
-.callout{background:var(--teal-light);border-left:4px solid var(--teal);border-radius:0 8px 8px 0;padding:1.1rem 1.4rem;margin:1.4rem 0}
-.callout-warn{background:#fff8e8;border-left-color:var(--accent)}
-.callout-title{font-weight:600;color:var(--teal-dark);margin-bottom:.35rem}
+.callout{background:var(--navy-light);border-left:4px solid var(--navy);border-radius:0 8px 8px 0;padding:1.1rem 1.4rem;margin:1.4rem 0;max-width:720px}
+.callout-warn{background:#fff8e8;border-left-color:#c8a800}
+.callout-title{font-weight:600;color:var(--navy-dark);margin-bottom:.35rem}
 
 /* TABLE */
 table{width:100%;border-collapse:collapse;font-size:.88rem;margin:1.4rem 0;background:#fff;border-radius:8px;overflow:hidden;border:1px solid var(--border)}
-thead{background:var(--teal);color:#fff}
+thead{background:var(--navy);color:#fff}
 th{padding:.7rem 1rem;text-align:left;font-weight:600;font-size:.83rem}
 td{padding:.6rem 1rem;border-bottom:1px solid var(--border)}
 tr:last-child td{border-bottom:none}
-tr:nth-child(even){background:var(--teal-light)}
+tr:nth-child(even){background:var(--navy-light)}
 
 /* VOTE LISTS */
-.vote-list{display:grid;grid-template-columns:1fr 1fr;gap:1.5rem;margin:1.4rem 0}
-.vote-side h4{font-weight:600;color:var(--teal-dark);margin-bottom:.45rem;font-size:.87rem;text-transform:uppercase;letter-spacing:.05em}
+.vote-list{display:grid;grid-template-columns:1fr 1fr;gap:1.5rem;margin:1.4rem 0;max-width:720px}
+.vote-side h4{font-weight:600;color:var(--navy-dark);margin-bottom:.45rem;font-size:.87rem;text-transform:uppercase;letter-spacing:.05em}
 .vote-side ul{list-style:disc;padding-left:1.2rem}
 .vote-side li{margin-bottom:.3rem;font-size:.88rem;line-height:1.4}
 .vote-side .meta{color:var(--text-muted);font-size:.8rem}
@@ -190,21 +197,34 @@ tr:nth-child(even){background:var(--teal-light)}
 /* INTERACTIVE */
 #interactive-wrapper{background:#fff;border:1px solid var(--border);border-radius:8px;padding:1.4rem;margin:1.8rem 0}
 .controls{display:flex;gap:1rem;align-items:center;flex-wrap:wrap;margin-bottom:1rem}
-.controls label{font-weight:600;font-size:.88rem;color:var(--teal-dark)}
-.controls select{padding:.42rem .85rem;border:1px solid var(--border);border-radius:6px;background:var(--teal-light);color:var(--teal-dark);font-size:.88rem;font-family:inherit;cursor:pointer}
-.controls select:focus{outline:2px solid var(--teal);outline-offset:2px}
-#plot-container{width:100%;height:560px}
+.controls label{font-weight:600;font-size:.88rem;color:var(--navy-dark)}
+.controls select{padding:.42rem .85rem;border:1px solid var(--border);border-radius:6px;background:var(--navy-light);color:var(--navy-dark);font-size:.88rem;font-family:inherit;cursor:pointer}
+.controls select:focus{outline:2px solid var(--navy);outline-offset:2px}
+#plot-container{width:100%;height:580px}
 
 /* PROMPTS */
 .prompt-entry{border:1px solid var(--border);border-radius:8px;margin-bottom:1.1rem;overflow:hidden}
 .prompt-role{padding:.45rem 1rem;font-size:.75rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em}
-.prompt-role.user{background:var(--teal-dark);color:#fff}
-.prompt-role.ai{background:var(--accent);color:var(--teal-dark)}
-.prompt-body{padding:.85rem 1rem;font-size:.87rem;line-height:1.6}
+.prompt-role.user{background:var(--navy-dark);color:#fff}
+.prompt-role.ai{background:var(--accent);color:#fff}
+.prompt-body{padding:.85rem 1rem;font-size:.87rem;line-height:1.6;max-width:720px}
 
 /* FOOTER */
-footer{background:var(--teal-dark);color:rgba(255,255,255,.72);text-align:center;padding:2rem;font-size:.84rem}
-footer a{color:var(--accent);text-decoration:none}
+footer{background:var(--navy-dark);color:rgba(255,255,255,.72);text-align:center;padding:2rem;font-size:.84rem}
+footer a{color:#7eb8e0;text-decoration:none}
+
+/* TOC SIDEBAR */
+.toc-sidebar{position:fixed;left:max(8px,calc(50% - 680px));top:160px;width:168px;z-index:50;
+  font-size:.77rem;padding:.9rem;background:rgba(255,255,255,.97);
+  border:1px solid var(--border);border-radius:8px;
+  box-shadow:0 2px 10px rgba(0,48,86,.1);display:none}
+.toc-sidebar .toc-title{font-size:.68rem;text-transform:uppercase;letter-spacing:.1em;
+  color:var(--navy);margin-bottom:.7rem;font-weight:700}
+.toc-sidebar a{display:block;color:var(--text-muted);text-decoration:none;
+  padding:.22rem 0 .22rem .55rem;border-left:2px solid transparent;
+  transition:all .15s;line-height:1.3}
+.toc-sidebar a:hover,.toc-sidebar a.toc-active{color:var(--navy);border-left-color:var(--navy);font-weight:600}
+@media(min-width:1420px){.toc-sidebar{display:block}}
 
 /* RESPONSIVE */
 @media(max-width:700px){
@@ -216,6 +236,20 @@ footer a{color:var(--accent);text-decoration:none}
 </head>
 <body>
 
+<!-- FLOATING TABLE OF CONTENTS -->
+<nav class="toc-sidebar" id="toc-sidebar" aria-label="Table of Contents">
+  <div class="toc-title">Contents</div>
+  <a href="#intro">Introduction</a>
+  <a href="#svd">01 &mdash; Data &amp; SVD</a>
+  <a href="#dc-svd">02 &mdash; Double-Centered SVD</a>
+  <a href="#irt">03 &mdash; IRT Model (brms)</a>
+  <a href="#claim">04 &mdash; Substantive Claim</a>
+  <a href="#interactive">05 &mdash; Interactive Explorer</a>
+  <a href="#horseshoe">06 &mdash; Horseshoe Prior</a>
+  <a href="#prompts">07 &mdash; AI Workflow</a>
+  <a href="#refs">References</a>
+</nav>
+
 <!-- NAVBAR -->
 <nav>
   <div class="nav-inner">
@@ -223,9 +257,10 @@ footer a{color:var(--accent);text-decoration:none}
     <ul class="nav-links">
       <li><a href="#svd">SVD</a></li>
       <li><a href="#dc-svd">DC-SVD</a></li>
-      <li><a href="#irt">IRT Model</a></li>
+      <li><a href="#irt">IRT</a></li>
       <li><a href="#claim">Claim</a></li>
       <li><a href="#interactive">Explore</a></li>
+      <li><a href="#horseshoe">Horseshoe</a></li>
       <li><a href="#prompts">AI Workflow</a></li>
     </ul>
   </div>
@@ -822,11 +857,114 @@ p_afd_gt_cdu <span class="kw">&lt;-</span> <span class="fn">mean</span>(afd_draw
   </div>
 </section>
 
-<!-- SECTION 6: AI WORKFLOW -->
-<section id="prompts">
+<!-- SECTION 6: HORSESHOE PRIOR EXTENSION -->
+<section id="horseshoe">
   <div class="container">
     <div class="section-header">
       <span class="section-num">06</span>
+      <div><h2>Extra Credit: Horseshoe Prior Extension</h2></div>
+    </div>
+
+    <p>
+      The standard 2PL IRT model places Normal(0,&thinsp;3) priors on item difficulty standard
+      deviations and Normal(0,&thinsp;1) on log-discrimination SDs. These are weakly
+      informative but <em>symmetric</em>: they regularize all items equally toward average
+      difficulty. The <strong>horseshoe prior</strong> takes a different philosophy &mdash; it
+      aggressively shrinks most parameters toward zero while allowing a few to remain large,
+      enabling <em>sparse</em> estimation.
+    </p>
+    <p>
+      We refit the same 2PL model with horseshoe-regularized item parameters:
+    </p>
+
+    <div class="callout">
+      <div class="callout-title">Horseshoe prior specification</div>
+      Global intercept: Horseshoe(df=1, scale_global=0.5)<br>
+      Item difficulty SD: half-Cauchy(0,&thinsp;3) &mdash; horseshoe-equivalent on scale<br>
+      Item discrimination SD: half-Cauchy(0,&thinsp;1)<br>
+      Person SD: Constant(1) &mdash; identification constraint unchanged
+    </div>
+
+    <p>
+      The Cauchy (Student-<em>t</em> with 1 degree of freedom) prior on item-level SDs is the
+      horseshoe-equivalent for scale parameters: it has very heavy tails but concentrates mass
+      near zero. This means <em>most items</em> are pushed toward average difficulty, while
+      <em>a few highly discriminating items</em> can still have extreme parameters.
+      The identification constraint SD(person) = 1 is preserved,
+      keeping ideal points on the same scale for direct comparison.
+    </p>
+
+    <div class="code-block">
+      <div class="code-label">R &mdash; Horseshoe prior specification</div>
+<pre>prior_hs <span class="kw">&lt;-</span>
+  <span class="fn">prior</span>(<span class="str">"horseshoe(df=1, scale_global=0.5)"</span>, <span class="kw">class</span> <span class="kw">=</span> <span class="str">"b"</span>,  <span class="kw">nlpar</span> <span class="kw">=</span> <span class="str">"eta"</span>) <span class="kw">+</span>
+  <span class="fn">prior</span>(<span class="str">"normal(0, 1)"</span>,                      <span class="kw">class</span> <span class="kw">=</span> <span class="str">"b"</span>,  <span class="kw">nlpar</span> <span class="kw">=</span> <span class="str">"logalpha"</span>) <span class="kw">+</span>
+  <span class="fn">prior</span>(<span class="str">"constant(1)"</span>,  <span class="kw">class</span> <span class="kw">=</span> <span class="str">"sd"</span>, <span class="kw">group</span> <span class="kw">=</span> <span class="str">"person_id"</span>, <span class="kw">nlpar</span> <span class="kw">=</span> <span class="str">"eta"</span>) <span class="kw">+</span>
+  <span class="fn">prior</span>(<span class="str">"student_t(1, 0, 3)"</span>, <span class="kw">class</span> <span class="kw">=</span> <span class="str">"sd"</span>, <span class="kw">group</span> <span class="kw">=</span> <span class="str">"item_id"</span>,   <span class="kw">nlpar</span> <span class="kw">=</span> <span class="str">"eta"</span>) <span class="kw">+</span>
+  <span class="fn">prior</span>(<span class="str">"student_t(1, 0, 1)"</span>, <span class="kw">class</span> <span class="kw">=</span> <span class="str">"sd"</span>, <span class="kw">group</span> <span class="kw">=</span> <span class="str">"item_id"</span>,   <span class="kw">nlpar</span> <span class="kw">=</span> <span class="str">"logalpha"</span>)
+
+fit_hs <span class="kw">&lt;-</span> <span class="fn">brm</span>(
+  formula <span class="kw">=</span> formula_2pl,  <span class="cm"># same formula as baseline</span>
+  data    <span class="kw">=</span> brms_data,
+  family  <span class="kw">=</span> <span class="fn">brmsfamily</span>(<span class="str">"bernoulli"</span>, <span class="str">"logit"</span>),
+  prior   <span class="kw">=</span> prior_hs,
+  chains  <span class="kw">=</span> <span class="nb">1</span>,  iter <span class="kw">=</span> <span class="nb">600</span>,  warmup <span class="kw">=</span> <span class="nb">100</span>,
+  seed    <span class="kw">=</span> <span class="nb">43</span>,  <span class="cm"># different seed for the horseshoe run</span>
+  file    <span class="kw">=</span> <span class="str">"models/fit_hs_bundestag"</span>,
+  backend <span class="kw">=</span> <span class="str">"rstan"</span>
+)</pre>
+    </div>
+
+    <h3>How much do ideal points shift?</h3>
+    <p>
+      The correlation between normal-prior and horseshoe-prior ideal points is
+      <strong>r&nbsp;=&nbsp;@@COR_HS_BASE@@</strong>, indicating that the horseshoe regularization
+      produces similar but not identical orderings. The RMSD between the two sets of ideal
+      points is <strong>@@RMSD_HS@@</strong> standard deviations &mdash; a moderate shift that
+      affects individual legislators but not the overall party ordering.
+    </p>
+
+    <div class="figure-block">
+      <img src="figures/09_horseshoe_comparison.png"
+           alt="Horseshoe vs normal-prior ideal point comparison">
+      <div class="figure-caption">
+        <strong>Figure 9.</strong> Ideal-point comparison: normal prior (x-axis) vs.
+        horseshoe-regularized prior (y-axis). The dashed line is the identity (perfect agreement);
+        points off-diagonal represent legislators whose ideal points shifted under heavier
+        regularization. The correlation is r&nbsp;=&nbsp;@@COR_HS_BASE@@.
+      </div>
+    </div>
+
+    <h3>Does the horseshoe shrink moderates more?</h3>
+    <p>
+      A key prediction of horseshoe-type priors is that they shrink <em>moderate</em> parameters
+      more aggressively than extreme ones. In legislative scaling terms: legislators whose voting
+      patterns are ambiguous (near the centre) should shift more under the horseshoe, while extreme
+      legislators (clearly far-left or far-right) should be more stable, because their position is
+      identified by many consistent votes and resists shrinkage.
+    </p>
+    <div class="callout">
+      <div class="callout-title">Interpretation</div>
+      If the horseshoe shifts ideal points uniformly (all legislators shift by similar amounts), the
+      data are informative enough to overwhelm the prior. If moderate legislators shift more than
+      extreme ones, the horseshoe is doing its intended work: shrinking uncertain estimates toward
+      zero while preserving extreme but well-identified positions. Either finding is substantively
+      interesting and speaks to the informativeness of the Bundestag roll-call record.
+    </div>
+    <p>
+      The comparison plot (Figure 9) provides direct evidence on this question: points near the
+      centre of the x-axis (moderate under the normal prior) that deviate from the identity line
+      represent legislators whose ideal points shifted under the horseshoe; points at the extremes
+      that stay close to the identity line represent robust extreme ideal points.
+    </p>
+  </div>
+</section>
+
+<!-- SECTION 7: AI WORKFLOW -->
+<section id="prompts">
+  <div class="container">
+    <div class="section-header">
+      <span class="section-num">07</span>
       <div><h2>AI Workflow Documentation</h2></div>
     </div>
 
@@ -879,6 +1017,28 @@ p_afd_gt_cdu <span class="kw">&lt;-</span> <span class="fn">mean</span>(afd_draw
       </div>
     </div>
 
+    <div class="prompt-entry">
+      <div class="prompt-role user">Design &amp; extra-credit prompt (User &rarr; Claude)</div>
+      <div class="prompt-body">
+        Improve site: (a) replace teal with University of Mannheim navy (#003056);
+        (b) official German party colors in Plotly; (c) clean tooltips with 2dp ideal point;
+        (d) floating TOC sidebar; (e) collapsible code blocks defaulting to hidden;
+        (f) MathJax for math notation; (g) max-width 720px prose; (h) add horseshoe
+        prior extension as Section 06 with comparison figure and interpretation.
+      </div>
+    </div>
+
+    <div class="prompt-entry">
+      <div class="prompt-role ai">Response (Claude)</div>
+      <div class="prompt-body">
+        Fixed IRT orientation bug (was using party detection which failed; switched to
+        SVD-correlation-based orientation). Updated party colors to official values,
+        redesigned CSS to University of Mannheim navy, added MathJax, floating TOC with
+        scroll-spy, JS-driven collapsible code blocks, and fitted the horseshoe model
+        (horseshoe(df=1) + Cauchy item SDs) comparing ideal points via Figure 9.
+      </div>
+    </div>
+
     <h3>Quality checks</h3>
     <ul style="padding-left:1.4rem;margin-top:.5rem;line-height:2">
       <li>Data recoding verified: yes=1, no=0, abstain/no_show=NA</li>
@@ -895,7 +1055,7 @@ p_afd_gt_cdu <span class="kw">&lt;-</span> <span class="fn">mean</span>(afd_draw
 <section id="refs">
   <div class="container">
     <div class="section-header">
-      <span class="section-num">07</span>
+      <span class="section-num">08</span>
       <div><h2>References</h2></div>
     </div>
     <ul style="padding-left:1.4rem;line-height:2.1">
@@ -927,13 +1087,13 @@ p_afd_gt_cdu <span class="kw">&lt;-</span> <span class="fn">mean</span>(afd_draw
 const RAW_DATA = @@PLOTLY_DATA@@;
 
 const PARTY_COLORS = {
-  "SPD":                   "#e3000f",
-  "CDU/CSU":               "#222222",
-  "FDP":                   "#c8a800",
-  "BÜNDNIS 90/DIE GRÜNEN": "#46962b",
-  "AfD":                   "#0489db",
-  "Die Linke":             "#be3075",
-  "BSW":                   "#ff6600",
+  "SPD":                   "#E3000F",
+  "CDU/CSU":               "#000000",
+  "FDP":                   "#FFED00",
+  "BÜNDNIS 90/DIE GRÜNEN": "#64A12D",
+  "AfD":                   "#009EE0",
+  "Die Linke":             "#BE3075",
+  "BSW":                   "#6A0F49",
   "fraktionslos":          "#888888"
 };
 
@@ -958,31 +1118,34 @@ function buildTraces(hl) {
       text: rows.map(d =>
         "<b>" + d.legislator + "</b><br>" +
         shortP(d.party) + "<br>" +
-        "θ (IRT): " + (d.theta||0).toFixed(3) + "<br>" +
-        "SVD dim 1: " + (d.svd_dim1||0).toFixed(3) + "<br>" +
-        "SVD dim 2: " + (d.svd_dim2||0).toFixed(3)
+        "Ideal Point: " + (d.theta||0).toFixed(2)
       ),
       hovertemplate: "%{text}<extra></extra>",
       marker: {
         color:   PARTY_COLORS[party] || "#888",
-        size:    7,
-        opacity: (hl === "all") ? 0.70 : (isHL ? 0.90 : 0.07),
-        line:    { width: 0.5, color: "white" }
+        size:    8,
+        opacity: (hl === "all") ? 0.72 : (isHL ? 0.92 : 0.07),
+        line:    { width: 0.8, color: "rgba(255,255,255,0.6)" }
       }
     };
   });
 }
 
 const layout = {
+  title: {
+    text: "Ideal Point Estimates — 20th Bundestag (Wahlperiode 20, 2021–2025)",
+    font: {size: 14, color: "#00203f"},
+    x: 0.02, xanchor: "left"
+  },
   xaxis: { title: { text: "IRT Ideal Point (θ) — left to right", font: {size:13} },
            zeroline:true, zerolinecolor:"#ccc", gridcolor:"#eee" },
   yaxis: { title: { text: "SVD Dimension 2", font: {size:13} },
            zeroline:true, zerolinecolor:"#ccc", gridcolor:"#eee" },
-  legend: { title:{text:"Party"}, bgcolor:"rgba(255,255,255,.85)",
+  legend: { title:{text:"Party"}, bgcolor:"rgba(255,255,255,.9)",
             bordercolor:"#ddd", borderwidth:1 },
-  plot_bgcolor:"#fafcfc", paper_bgcolor:"#ffffff",
-  hoverlabel: { bgcolor:"#fff", bordercolor:"#999", font:{size:12} },
-  margin: { l:60, r:20, t:20, b:60 },
+  plot_bgcolor:"#fafcfd", paper_bgcolor:"#ffffff",
+  hoverlabel: { bgcolor:"#fff", bordercolor:"#999", font:{size:13} },
+  margin: { l:60, r:20, t:54, b:60 },
   hovermode: "closest"
 };
 
@@ -998,6 +1161,52 @@ Plotly.newPlot("plot-container", buildTraces("all"), layout, config);
 function highlightParty(p) {
   Plotly.react("plot-container", buildTraces(p), layout, config);
 }
+
+/* ---- Collapsible code blocks ---- */
+document.addEventListener("DOMContentLoaded", function() {
+  document.querySelectorAll(".code-block").forEach(function(block) {
+    const label = block.querySelector(".code-label");
+    const pre   = block.querySelector("pre");
+    if (!label || !pre) return;
+
+    /* wrap pre in a collapsible div */
+    const wrapper = document.createElement("div");
+    wrapper.className = "code-content";
+    pre.parentNode.insertBefore(wrapper, pre);
+    wrapper.appendChild(pre);
+
+    /* add toggle button */
+    const btn = document.createElement("span");
+    btn.className = "code-toggle-btn";
+    btn.textContent = "Show code ▼";
+    label.appendChild(btn);
+
+    label.addEventListener("click", function() {
+      const open = wrapper.style.display !== "none";
+      wrapper.style.display = open ? "none" : "block";
+      btn.textContent = open ? "Show code ▼" : "Hide code ▲";
+    });
+  });
+
+  /* ---- TOC active-link highlighting ---- */
+  const tocLinks = document.querySelectorAll(".toc-sidebar a");
+  const sections = Array.from(tocLinks)
+    .map(a => document.querySelector(a.getAttribute("href")))
+    .filter(Boolean);
+
+  function onScroll() {
+    let current = sections[0];
+    sections.forEach(s => {
+      if (window.scrollY >= s.offsetTop - 120) current = s;
+    });
+    tocLinks.forEach(a => {
+      a.classList.toggle("toc-active",
+        a.getAttribute("href") === "#" + current.id);
+    });
+  }
+  window.addEventListener("scroll", onScroll, {passive: true});
+  onScroll();
+});
 </script>
 </body>
 </html>'

@@ -22,13 +22,13 @@ for (d in c("figures", "results", "models")) {
 
 # Official German party colors (keys match cleaned party names)
 party_colors <- c(
-  "SPD"                    = "#e3000f",
-  "CDU/CSU"                = "#222222",
-  "FDP"                    = "#c8a800",
-  "BÜNDNIS 90/DIE GRÜNEN"  = "#46962b",
-  "AfD"                    = "#0489db",
-  "Die Linke"              = "#be3075",
-  "BSW"                    = "#ff6600",
+  "SPD"                    = "#E3000F",
+  "CDU/CSU"                = "#000000",
+  "FDP"                    = "#FFED00",
+  "BÜNDNIS 90/DIE GRÜNEN"  = "#64A12D",
+  "AfD"                    = "#009EE0",
+  "Die Linke"              = "#BE3075",
+  "BSW"                    = "#6A0F49",
   "fraktionslos"           = "#888888"
 )
 
@@ -406,12 +406,15 @@ theta_df <- as_tibble(theta_arr, rownames = "person_id") %>%
   mutate(mandate_id = as.numeric(person_id)) %>%
   left_join(leg_meta_base, by = "mandate_id")
 
-# Orient theta so AfD is positive
-afd_theta_mean <- theta_df %>%
-  filter(str_detect(party, "AfD")) %>%
-  pull(theta) %>% mean(na.rm = TRUE)
+# Orient theta to match SVD dim1 (which is already AfD-positive)
+# This is more robust than party detection because it uses the already-oriented SVD
+svd_dim1_for_irt <- leg_meta %>%
+  select(mandate_id, svd_dim1) %>%
+  inner_join(theta_df %>% select(mandate_id, theta), by = "mandate_id")
+test_cor_irt <- cor(svd_dim1_for_irt$svd_dim1, svd_dim1_for_irt$theta,
+                    use = "complete.obs")
 
-if (!is.na(afd_theta_mean) && afd_theta_mean < 0) {
+if (test_cor_irt < 0) {
   theta_df <- theta_df %>%
     mutate(
       theta    = -theta,
@@ -508,9 +511,24 @@ draws_gruen <- party_theta_draws("GRÜNEN")
 draws_linke <- party_theta_draws("Linke")
 draws_fdp   <- party_theta_draws("FDP")
 
-# Orient (same direction as point estimates)
-if (!is.null(draws_afd) && mean(draws_afd) < 0) {
-  draws_afd   <- -draws_afd
+# Orient draws to match the oriented theta (already SVD-aligned)
+# Use correlation between draw means and oriented theta to decide flip
+draw_means <- sapply(names(party_draws_list_tmp <- list(
+  afd=draws_afd, cdu=draws_cdu, spd=draws_spd, gruen=draws_gruen,
+  linke=draws_linke, fdp=draws_fdp)), function(nm) {
+    d <- party_draws_list_tmp[[nm]]
+    if (is.null(d)) NA_real_ else mean(d)
+  })
+
+# Check direction: AfD should be more positive than SPD
+afd_mean_draw  <- if (!is.null(draws_afd)) mean(draws_afd) else NA_real_
+spd_mean_draw  <- if (!is.null(draws_spd)) mean(draws_spd) else NA_real_
+
+# AfD is right-wing so should have higher theta than SPD
+# Compare with oriented theta: check if test_cor_irt was negative (meaning we already flipped theta)
+# draws should match the same orientation as theta_df
+if (test_cor_irt < 0) {
+  draws_afd   <- if (!is.null(draws_afd))   -draws_afd   else NULL
   draws_cdu   <- if (!is.null(draws_cdu))   -draws_cdu   else NULL
   draws_spd   <- if (!is.null(draws_spd))   -draws_spd   else NULL
   draws_gruen <- if (!is.null(draws_gruen)) -draws_gruen else NULL
@@ -590,6 +608,125 @@ ggsave("figures/08_posterior_parties.png", p_post,
        width = 9, height = 7, dpi = 150)
 
 # ==============================================================================
+# 6. HORSESHOE PRIOR EXTENSION (Extra Credit)
+# ==============================================================================
+
+cat("=== Fitting horseshoe-regularized 2PL IRT model ===\n")
+
+# Horseshoe-inspired regularization:
+#   - horseshoe(df=1) on global difficulty intercept (b_eta) — the parameter
+#     class where brms supports horseshoe() directly
+#   - student_t(1, 0, ...) = Cauchy priors on item-level SDs: this is the
+#     classic half-Cauchy / horseshoe-equivalent for scale parameters
+#   - person SD remains constant(1) to preserve identification
+#
+# Effect: items are more aggressively regularized toward average difficulty
+# and average discrimination. The implied ideal points change because the
+# relative informativeness of each vote is reweighted.
+
+prior_hs <-
+  prior("horseshoe(df=1, scale_global=0.5)", class = "b",  nlpar = "eta") +
+  prior("normal(0, 1)",       class = "b",  nlpar = "logalpha") +
+  prior("constant(1)",        class = "sd", group = "person_id", nlpar = "eta") +
+  prior("student_t(1, 0, 3)", class = "sd", group = "item_id",   nlpar = "eta") +
+  prior("student_t(1, 0, 1)", class = "sd", group = "item_id",   nlpar = "logalpha")
+
+fit_hs <- brm(
+  formula = formula_2pl,
+  data    = brms_data,
+  family  = brmsfamily("bernoulli", "logit"),
+  prior   = prior_hs,
+  chains  = 1,
+  iter    = 600,
+  warmup  = 100,
+  seed    = 43,
+  file    = "models/fit_hs_bundestag",
+  backend = "rstan"
+)
+
+cat("Horseshoe model fitted.\n")
+
+# Extract theta from horseshoe model
+ranef_hs     <- ranef(fit_hs)
+theta_hs_arr <- ranef_hs$person_id[, , "eta_Intercept"]
+
+theta_hs_df <- as_tibble(theta_hs_arr, rownames = "person_id") %>%
+  rename(theta_hs = Estimate, theta_hs_se = Est.Error,
+         theta_hs_lo = Q2.5, theta_hs_hi = Q97.5) %>%
+  mutate(mandate_id = as.numeric(person_id))
+
+# Orient horseshoe theta to match SVD dim1 (same rule as normal-prior model)
+svd_for_hs <- leg_meta %>%
+  select(mandate_id, svd_dim1) %>%
+  inner_join(theta_hs_df %>% select(mandate_id, theta_hs), by = "mandate_id")
+test_cor_hs <- cor(svd_for_hs$svd_dim1, svd_for_hs$theta_hs, use = "complete.obs")
+
+if (test_cor_hs < 0) {
+  theta_hs_df <- theta_hs_df %>%
+    mutate(
+      theta_hs    = -theta_hs,
+      lo_old      = theta_hs_lo,
+      theta_hs_lo = -theta_hs_hi,
+      theta_hs_hi = -lo_old
+    ) %>%
+    select(-lo_old)
+}
+
+# Comparison: baseline (normal prior) vs horseshoe
+leg_comparison <- theta_df %>%
+  select(mandate_id, theta) %>%
+  inner_join(theta_hs_df %>% select(mandate_id, theta_hs), by = "mandate_id") %>%
+  left_join(leg_meta_base, by = "mandate_id") %>%
+  filter(party %in% names(party_colors))
+
+cor_hs_base <- cor(leg_comparison$theta, leg_comparison$theta_hs, use = "complete.obs")
+cat(sprintf("Correlation normal-prior vs horseshoe theta: %.4f\n", cor_hs_base))
+
+# Root-mean-square deviation (how much do ideal points shift?)
+rmsd_hs <- sqrt(mean((leg_comparison$theta - leg_comparison$theta_hs)^2, na.rm = TRUE))
+
+# Does horseshoe shrink moderate legislators more than extreme ones?
+# Compute: for each quintile of |theta|, mean shift = |theta_hs - theta|
+leg_comparison <- leg_comparison %>%
+  mutate(
+    abs_theta  = abs(theta),
+    abs_shift  = abs(theta_hs - theta),
+    extremism  = ntile(abs_theta, 5)
+  )
+shift_by_extreme <- leg_comparison %>%
+  group_by(extremism) %>%
+  summarise(mean_shift = mean(abs_shift), .groups = "drop")
+cat("Mean absolute shift by extremism quintile (1=most moderate, 5=most extreme):\n")
+print(shift_by_extreme)
+
+# ==============================================================================
+# FIGURE 9: Horseshoe vs Normal prior ideal-point comparison
+# ==============================================================================
+
+p_hs <- ggplot(leg_comparison, aes(x = theta, y = theta_hs, color = party)) +
+  geom_abline(slope = 1, intercept = 0, linetype = "dashed",
+              color = "#aaaaaa", linewidth = 0.7) +
+  geom_point(alpha = 0.55, size = 1.6) +
+  geom_smooth(method = "lm", se = FALSE, inherit.aes = FALSE,
+              aes(x = theta, y = theta_hs),
+              color = "#00203f", linewidth = 1) +
+  scale_color_manual(values = party_colors, name = "Party") +
+  annotate("label", x = -Inf, y = Inf, hjust = -0.1, vjust = 1.2,
+           label = sprintf("r = %.3f  RMSD = %.3f", cor_hs_base, rmsd_hs),
+           size = 4, color = "#00203f", fill = "white", label.size = 0.3) +
+  labs(
+    title    = "Horseshoe vs. Normal Prior: Ideal-Point Comparison",
+    subtitle = "Dashed line = identity (perfect agreement); points off-diagonal shifted by prior",
+    x        = "Normal-Prior Ideal Point (θ)",
+    y        = "Horseshoe-Prior Ideal Point (θ)",
+    caption  = "Horseshoe: horseshoe(df=1) on global intercept; Cauchy on item SDs"
+  ) +
+  guides(color = guide_legend(override.aes = list(size = 3, alpha = 0.9)))
+
+ggsave("figures/09_horseshoe_comparison.png", p_hs,
+       width = 9, height = 7, dpi = 150)
+
+# ==============================================================================
 # SAVE RESULTS FOR SITE
 # ==============================================================================
 
@@ -624,7 +761,9 @@ summary_stats <- list(
   ci_diff_afd_cdu_hi = round(ci_diff[2], 3),
   grand_mean         = round(grand_mean, 4),
   max_row_err_dc     = signif(max_row_err, 3),
-  max_col_err_dc     = signif(max_col_err, 3)
+  max_col_err_dc     = signif(max_col_err, 3),
+  cor_hs_base        = round(cor_hs_base, 4),
+  rmsd_hs            = round(rmsd_hs, 4)
 )
 
 write_json(summary_stats, "results/summary_stats.json", auto_unbox = TRUE)
