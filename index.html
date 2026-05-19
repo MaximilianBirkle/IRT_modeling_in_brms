@@ -21,17 +21,17 @@
   --bg:          #0a0f1a;
   --bg-card:     #111827;
   --bg-code:     #0d1117;
-  --text:        #e8edf4;
-  --text-muted:  #8b9ab0;
-  --border:      #1e293b;
+  --text:        #f1f5f9;
+  --text-muted:  #94a3b8;
+  --border:      #1e3a5f;
   --nav-h:       56px;
 }
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 html{scroll-behavior:smooth;scroll-padding-top:calc(var(--nav-h) + 16px)}
 body{font-family:"Inter",system-ui,sans-serif;font-size:1rem;line-height:1.75;color:var(--text);background:var(--bg)}
-a{color:var(--navy-mid);text-decoration:none}
-a:hover{color:#7eb8e0;text-decoration:underline}
-strong{color:#e8edf4}
+a{color:#60a5fa;text-decoration:none}
+a:hover{color:#93c5fd;text-decoration:underline}
+strong{color:#f1f5f9}
 ul,ol{padding-left:1.4rem;color:var(--text)}
 li{margin-bottom:.25rem}
 
@@ -114,8 +114,9 @@ li{margin-bottom:.25rem}
   position:absolute;top:50%;left:50%;
   transform:translate(-50%,-50%);
   width:65%;max-width:680px;height:auto;
-  opacity:0.06;
-  filter:invert(1) brightness(2);
+  opacity:0.07;
+  filter:invert(1) brightness(1.5);
+  mix-blend-mode:screen;
   pointer-events:none;
   animation:eagle-breathe 8s ease-in-out infinite;
   object-fit:contain;
@@ -194,7 +195,7 @@ section{
 .section-header{margin-bottom:2rem}
 .section-num{
   font-family:"Source Serif 4",serif;font-size:5rem;font-weight:700;
-  color:rgba(255,255,255,0.05);line-height:1;display:block;margin-bottom:-.8rem;
+  color:rgba(255,255,255,0.12);line-height:1;display:block;margin-bottom:-.8rem;
   pointer-events:none;
 }
 .section-title{
@@ -202,13 +203,14 @@ section{
   color:#ffffff;line-height:1.2;margin-bottom:.75rem;
 }
 .key-finding{
-  display:inline-block;background:var(--navy);color:#fff;
-  border-radius:6px;padding:.4rem 1rem;font-size:.88rem;font-weight:500;
+  display:inline-block;background:#0a2540;color:#fff;
+  border-left:4px solid #4a7fa5;
+  border-radius:0 6px 6px 0;padding:.4rem 1rem;font-size:.88rem;font-weight:500;
   margin-bottom:1.2rem;letter-spacing:.01em;
 }
 h3{
   font-family:"Source Serif 4",serif;font-size:1.15rem;font-weight:600;
-  color:#e8edf4;margin:2rem 0 .7rem;
+  color:#ffffff;margin:2rem 0 .7rem;
   padding-left:.85rem;border-left:3px solid var(--navy-mid);
 }
 p{margin-bottom:.9rem;max-width:720px;color:var(--text)}
@@ -255,10 +257,9 @@ code{background:#1a2535;border-radius:4px;padding:.1rem .4rem;font-family:"JetBr
 pre{margin:0;padding:1.1rem 1.3rem;overflow-x:auto;font-family:"JetBrains Mono",monospace;font-size:.8rem;line-height:1.65;color:#c9d1d9}
 .kw{color:#ff7b72}.fn{color:#79c0ff}.str{color:#a5d6ff}.cm{color:#8b949e;font-style:italic}.nb{color:#e3b341}
 .copy-btn{
-  position:absolute;top:.45rem;right:.45rem;z-index:10;
-  background:#21262d;border:1px solid #30363d;border-radius:6px;
-  color:#8b949e;font-size:.72rem;padding:.2rem .55rem;cursor:pointer;
-  font-family:"JetBrains Mono",monospace;line-height:1.5;
+  background:#21262d;border:1px solid #30363d;border-radius:20px;
+  color:#8b949e;font-size:.7rem;padding:.15rem .6rem;cursor:pointer;
+  font-family:"JetBrains Mono",monospace;line-height:1.5;flex-shrink:0;
   transition:all 160ms ease;
 }
 @media(hover:hover) and (pointer:fine){.copy-btn:hover{color:#e8edf4;border-color:var(--navy-mid)}}
@@ -281,7 +282,7 @@ pre{margin:0;padding:1.1rem 1.3rem;overflow-x:auto;font-family:"JetBrains Mono",
   opacity:0;transition:opacity 300ms var(--ease-out) 200ms;
 }
 .figure-block.cap-visible .figure-caption{opacity:1}
-.figure-caption strong{color:#e8edf4;font-style:normal;font-weight:600}
+.figure-caption strong{color:#f1f5f9;font-style:normal;font-weight:600}
 
 /* ── CALLOUTS ────────────────────────────────────────────────────────────── */
 .callout{
@@ -347,7 +348,7 @@ footer p+p{margin-top:.6rem;font-size:.8rem;opacity:.8}
 <nav id="main-nav" aria-label="Main navigation">
   <div class="nav-progress" id="nav-progress"></div>
   <div class="nav-inner">
-    <a class="nav-brand" href="#" aria-label="University of Mannheim">
+    <a class="nav-brand" href="https://www.uni-mannheim.de" target="_blank" rel="noopener" aria-label="University of Mannheim">
       <img src="Uni-mannheim.svg.png" alt="University of Mannheim">
     </a>
     <button class="hamburger" id="hamburger" aria-label="Toggle menu" aria-expanded="false">&#9776;</button>
@@ -371,7 +372,9 @@ footer p+p{margin-top:.6rem;font-size:.8rem;opacity:.8}
   <img src="bundestag.jpg" class="hero-eagle" alt="" aria-hidden="true">
   <div class="hero-inner">
     <div class="hero-logo">
-      <img src="Uni-mannheim.svg.png" alt="University of Mannheim logo">
+      <a href="https://www.uni-mannheim.de" target="_blank" rel="noopener">
+        <img src="Uni-mannheim.svg.png" alt="University of Mannheim logo">
+      </a>
     </div>
     <h1 class="hero-title">Scaling the Bundestag: Ideal-Point Estimation from Roll-Call Votes</h1>
     <p class="hero-subtitle">20th Wahlperiode (2021&ndash;2025) &middot; SVD and Bayesian 2PL IRT</p>
@@ -1522,23 +1525,30 @@ document.querySelectorAll(".code-block").forEach(function(block){
 });
 
 /* =========================================================================
-   COPY TO CLIPBOARD
+   COPY TO CLIPBOARD — injected beside the toggle button, no overlap
    ========================================================================= */
 document.querySelectorAll(".code-block").forEach(function(block){
   const pre=block.querySelector("pre");
-  if(!pre) return;
-  const btn=document.createElement("button");
-  btn.className="copy-btn";
-  btn.textContent="Copy";
-  btn.setAttribute("aria-label","Copy code to clipboard");
-  btn.addEventListener("click",function(){
+  const toggler=block.querySelector(".code-toggle-btn");
+  if(!pre||!toggler) return;
+  const copyBtn=document.createElement("button");
+  copyBtn.className="copy-btn";
+  copyBtn.textContent="Copy";
+  copyBtn.setAttribute("aria-label","Copy code to clipboard");
+  copyBtn.addEventListener("click",function(e){
+    e.stopPropagation();
     navigator.clipboard.writeText(pre.textContent).then(function(){
-      btn.textContent="✓ Copied";
-      btn.classList.add("copied");
-      setTimeout(function(){ btn.textContent="Copy"; btn.classList.remove("copied"); },2000);
-    }).catch(function(){ btn.textContent="Error"; setTimeout(function(){ btn.textContent="Copy"; },2000); });
+      copyBtn.textContent="✓ Copied";
+      copyBtn.classList.add("copied");
+      setTimeout(function(){ copyBtn.textContent="Copy"; copyBtn.classList.remove("copied"); },2000);
+    }).catch(function(){ copyBtn.textContent="Error"; setTimeout(function(){ copyBtn.textContent="Copy"; },2000); });
   });
-  block.appendChild(btn);
+  /* Wrap both buttons in a flex row */
+  const wrap=document.createElement("span");
+  wrap.style.cssText="display:flex;gap:8px;align-items:center;flex-shrink:0";
+  toggler.parentNode.insertBefore(wrap,toggler);
+  wrap.appendChild(toggler);
+  wrap.appendChild(copyBtn);
 });
 
 /* Ensure captions visible after a delay */
