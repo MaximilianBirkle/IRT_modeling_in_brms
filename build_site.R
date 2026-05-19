@@ -86,7 +86,7 @@ template <- '<!DOCTYPE html>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
-<script>MathJax={tex:{inlineMath:[["$","$"]],displayMath:[["$$","$$"]]},options:{skipHtmlTags:["script","noscript","style","textarea","pre","code"]}};</script>
+<script>MathJax={tex:{inlineMath:[["$","$"],["\\\\(","\\\\)"]],displayMath:[["$$","$$"],["\\\\[","\\\\]"]]},options:{skipHtmlTags:["script","noscript","style","textarea","pre","code"]}};</script>
 <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js" async></script>
 <style>
 /* ── CUSTOM EASING ─────────────────────────────────────────────────────────── */
@@ -215,15 +215,9 @@ li{margin-bottom:.25rem}
   font-weight:700;line-height:1.18;margin-bottom:.85rem;
   animation:fade-up 640ms var(--ease-out) 80ms both;
 }
-.hero-subtitle{
-  font-size:1.05rem;opacity:.82;margin-bottom:2.5rem;
-  animation:fade-up 640ms var(--ease-out) 160ms both;
-}
-.hero-meta{
-  display:flex;justify-content:center;gap:1.4rem;flex-wrap:wrap;
-  font-size:.8rem;opacity:.65;margin-bottom:2.8rem;
-  animation:fade-up 640ms var(--ease-out) 220ms both;
-}
+.hero-pills{display:flex;justify-content:center;gap:.6rem;flex-wrap:wrap;margin-bottom:1.2rem;animation:fade-up 640ms var(--ease-out) 160ms both}
+.hero-pill{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);border-radius:20px;padding:.25rem .9rem;font-size:.78rem;font-weight:500;letter-spacing:.03em;color:rgba(255,255,255,.9)}
+.hero-course{font-size:.83rem;color:rgba(255,255,255,.55);margin-bottom:2.5rem;animation:fade-up 640ms var(--ease-out) 220ms both}
 .hero-stats{
   display:grid;grid-template-columns:repeat(4,1fr);gap:1.2rem;
   margin-bottom:3rem;
@@ -268,7 +262,7 @@ section{
 @media(prefers-reduced-motion:reduce){
   .reveal{opacity:0;transform:none;transition:opacity 400ms ease}
   .reveal.visible{opacity:1}
-  .hero-logo,.hero-title,.hero-subtitle,.hero-meta,.hero-stats,.hero-caret{animation:none;opacity:1}
+  .hero-logo,.hero-title,.hero-pills,.hero-course,.hero-stats,.hero-caret{animation:none;opacity:1}
   .hero,.hero-eagle{animation:none}
 }
 
@@ -313,6 +307,7 @@ code{background:#1a2535;border-radius:4px;padding:.1rem .4rem;font-family:"JetBr
   color:#fff;line-height:1;margin-bottom:.28rem;display:block;
 }
 .stat-label{font-size:.73rem;color:#4a7fa5;font-weight:500;text-transform:uppercase;letter-spacing:.05em}
+.stat-desc{font-size:.7rem;color:var(--text-muted);margin-top:.4rem;line-height:1.4;display:block}
 
 /* ── CODE BLOCKS ─────────────────────────────────────────────────────────── */
 .code-block{
@@ -458,12 +453,12 @@ footer p+p{margin-top:.6rem;font-size:.8rem;opacity:.8}
       </a>
     </div>
     <h1 class="hero-title">Scaling the Bundestag: Ideal-Point Estimation from Roll-Call Votes</h1>
-    <p class="hero-subtitle">20th Wahlperiode (2021&ndash;2025) &middot; SVD and Bayesian 2PL IRT</p>
-    <div class="hero-meta">
-      <span>&#128197; Ampel coalition &middot; 2021&ndash;2025</span>
-      <span>&#127979; DS 201 &middot; Bayesian Statistics &middot; Uni Mannheim &middot; FSS 2026</span>
-      <span>&#128202; Abgeordnetenwatch e.V. data (CC0)</span>
+    <div class="hero-pills">
+      <span class="hero-pill">20th Bundestag</span>
+      <span class="hero-pill">2021&ndash;2025</span>
+      <span class="hero-pill">Ampel Coalition</span>
     </div>
+    <p class="hero-course">DS 201 &middot; Bayesian Statistics &middot; University of Mannheim &middot; FSS 2026</p>
     <div class="hero-stats" id="hero-stats">
       <div class="hero-stat hs-c1">
         <span class="hero-stat-val hero-counter" data-target="@@N_LEGISLATORS@@">@@N_LEGISLATORS@@</span>
@@ -517,7 +512,7 @@ footer p+p{margin-top:.6rem;font-size:.8rem;opacity:.8}
     <em>discrimination</em> parameter &alpha;<sub>j</sub> per vote alongside a <em>difficulty</em>
     &beta;<sub>j</sub>. The item characteristic curve is
     $$P(X_{ij}=1 \\mid \\theta_i, \\alpha_j, \\beta_j) = \\text{logistic}(\\alpha_j(\\theta_i - \\beta_j))$$
-    where &theta;<sub>i</sub> is legislator i&rsquo;s ideal point. Following B&uuml;rkner (2021),
+    where &theta;<sub>i</sub> is legislator i&rsquo;s ideal point. Following <a href="v100i05.pdf" target="_blank">B&uuml;rkner (2021)</a>,
     we fit this as a nonlinear mixed model in brms, obtaining a full posterior distribution over
     all parameters &mdash; something SVD alone cannot provide.
   </p>
@@ -526,6 +521,15 @@ footer p+p{margin-top:.6rem;font-size:.8rem;opacity:.8}
     estimates only; the IRT model returns a posterior distribution, enabling probability
     statements such as &ldquo;the AfD&rsquo;s mean ideal point exceeds CDU/CSU&rsquo;s with
     probability @@P_AFD_GT_CDU@@&rdquo; with quantified credible intervals.
+  </p>
+  <p>
+    Geometrically, SVD provides the <strong>optimal low-rank approximation</strong> to the vote matrix. By the Eckart&ndash;Young theorem, truncating to the first \\(k\\) singular components minimises the Frobenius-norm reconstruction error over all rank-\\(k\\) matrices. The first left singular vector \\(\\mathbf{u}_1\\) therefore captures the single axis that best reconstructs pairwise voting co-movements &mdash; without using any party-label information.
+  </p>
+  <p>
+    Following <a href="v100i05.pdf" target="_blank">B&uuml;rkner (2021)</a>, we implement the 2PL model in brms as a nonlinear mixed model with formula <code>vote_binary&nbsp;~&nbsp;exp(logalpha)&nbsp;*&nbsp;eta</code>. The item discrimination \\(\\alpha_j = \\exp(\\log\\alpha_j)\\) is kept positive by the exponential link; the person&ndash;item interaction \\(\\eta_{ij} = \\theta_i - \\beta_j\\) is decomposed into crossed random effects for legislators and votes. Identification is achieved by constraining the SD of person effects to 1, placing \\(\\theta\\) on a standardised scale with mean 0.
+  </p>
+  <p>
+    Double-centering addresses a bias in the raw imputed SVD. Without centering, the first dimension partly reflects <em>additive</em> tendencies: legislators who habitually vote yes score high regardless of ideology; popular bills load positively simply because many legislators agree. Subtracting each legislator&rsquo;s mean, each vote&rsquo;s mean, and adding back the grand mean removes these additive components, leaving a matrix of pure <em>interaction</em> residuals that DC-SVD then decomposes.
   </p>
   </div>
   <div class="stats-grid reveal" id="hero-stats-secondary">
@@ -751,12 +755,11 @@ na_idx    <span class="kw">&lt;-</span> <span class="fn">which</span>(<span clas
     separates legislators. The model is:
   </p>
   <div class="callout">
-    P(X<sub>ij</sub>&nbsp;=&nbsp;1&nbsp;|&nbsp;&theta;<sub>i</sub>, &alpha;<sub>j</sub>, &beta;<sub>j</sub>)
-    &nbsp;=&nbsp;logistic(&alpha;<sub>j</sub>&nbsp;&middot;&nbsp;(&theta;<sub>i</sub>&nbsp;&minus;&nbsp;&beta;<sub>j</sub>))
+    \\[P(X_{ij}=1 \\mid \\theta_i, \\alpha_j, \\beta_j) = \\text{logistic}(\\alpha_j(\\theta_i - \\beta_j))\\]
   </div>
 
   <div class="code-block">
-    <div class="code-label">R &mdash; brms 2PL formula (B&uuml;rkner 2021) <span class="code-toggle-btn">Show code &#9660;</span></div>
+    <div class="code-label">R &mdash; brms 2PL formula (<a href="v100i05.pdf" target="_blank">B&uuml;rkner 2021</a>) <span class="code-toggle-btn">Show code &#9660;</span></div>
     <div class="code-content">
 <pre>formula_2pl <span class="kw">&lt;-</span> <span class="fn">bf</span>(
   vote_binary <span class="kw">~</span> <span class="fn">exp</span>(logalpha) <span class="kw">*</span> eta,
@@ -771,7 +774,7 @@ prior_2pl <span class="kw">&lt;-</span>
     </div>
   </div>
 
-  <h3>Prior specification (B&uuml;rkner 2021, Table 1)</h3>
+  <h3>Prior specification (<a href="v100i05.pdf" target="_blank">B&uuml;rkner 2021</a>, Table 1)</h3>
   <table>
     <thead><tr><th>Parameter</th><th>Prior</th><th>Interpretation</th></tr></thead>
     <tbody>
@@ -865,18 +868,22 @@ p_afd_gt_cdu <span class="kw">&lt;-</span> <span class="fn">mean</span>(afd_draw
     <div class="stat-card">
       <span class="stat-value">@@P_AFD_GT_CDU@@</span>
       <span class="stat-label">P(&theta;&#772;_AfD &gt; &theta;&#772;_CDU)</span>
+      <span class="stat-desc">AfD sits right of CDU/CSU in all 500 posterior draws</span>
     </div>
     <div class="stat-card">
       <span class="stat-value">@@P_LINKE_GT_GRUEN@@</span>
-      <span class="stat-label">P(&theta;&#772;_Linke &gt; &theta;&#772;_Gr&uuml;nen)</span>
+      <span class="stat-label">Linke in opposition bloc</span>
+      <span class="stat-desc">P(&theta;&#772;_Linke &gt; &theta;&#772;_Gr&uuml;nen) &mdash; vote-space, not ideology</span>
     </div>
     <div class="stat-card">
       <span class="stat-value">@@P_AFD_GT_SPD@@</span>
       <span class="stat-label">P(&theta;&#772;_AfD &gt; &theta;&#772;_SPD)</span>
+      <span class="stat-desc">AfD is more extreme than SPD in all draws</span>
     </div>
     <div class="stat-card">
       <span class="stat-value">@@CI_DIFF_AFD_CDU@@</span>
       <span class="stat-label">95% CI: &theta;&#772;_AfD &minus; &theta;&#772;_CDU</span>
+      <span class="stat-desc">Credible interval for the gap in units of &theta; SD</span>
     </div>
   </div>
   </div>
@@ -1099,7 +1106,7 @@ p_afd_gt_cdu <span class="kw">&lt;-</span> <span class="fn">mean</span>(afd_draw
   </div>
   <div class="reveal">
   <ul style="padding-left:1.4rem;line-height:2.2">
-    <li>B&uuml;rkner, P.-C. (2021). Bayesian Item Response Modeling in R with brms and Stan.
+    <li><a href="v100i05.pdf" target="_blank">B&uuml;rkner, P.-C. (2021). Bayesian Item Response Modeling in R with brms and Stan.</a>
         <em>Journal of Statistical Software</em>, 100(5), 1&ndash;54.</li>
     <li>Clinton, J., Jackman, S., &amp; Rivers, D. (2004). The statistical analysis of roll call data.
         <em>American Political Science Review</em>, 98(2), 355&ndash;370.</li>
