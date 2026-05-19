@@ -173,6 +173,15 @@ leg_meta <- leg_meta %>%
 vote_meta <- vote_meta %>%
   mutate(svd_loading1 = V1[, 1], svd_loading2 = V1[, 2])
 
+# Save full vote loadings for interactive Fig 3
+write_json(
+  vote_meta %>%
+    select(poll_label, committee, accepted, svd_loading1) %>%
+    mutate(svd_loading1 = round(svd_loading1, 4)) %>%
+    arrange(svd_loading1),
+  "results/vote_loadings.json", dataframe = "rows", na = "null"
+)
+
 # Party ordering by mean dim-1 score
 party_order <- leg_meta %>%
   group_by(party) %>%
@@ -189,6 +198,7 @@ scree_df <- tibble(
   var_pct    = var_exp1[1:min(25, length(D1))] * 100,
   cumulative = cumsum(var_exp1[1:min(25, length(D1))]) * 100
 )
+write_json(scree_df, "results/scree_data.json", dataframe = "rows")
 
 p_scree <- ggplot(scree_df, aes(x = dim)) +
   geom_col(aes(y = var_pct), fill = "#3c7a6e", alpha = 0.85, width = 0.7) +
@@ -720,11 +730,12 @@ ggsave("figures/09_horseshoe_comparison.png", p_hs,
 
 cat("=== Saving results ===\n")
 
-# Plotly data (for interactive chart)
+# Plotly data (for interactive chart) — include horseshoe theta
 plotly_data <- leg_meta %>%
   filter(!is.na(theta)) %>%
+  left_join(theta_hs_df %>% select(mandate_id, theta_hs), by = "mandate_id") %>%
   select(mandate_id, legislator, party, svd_dim1, svd_dim2,
-         svd2_dim1, theta, theta_se, theta_lo, theta_hi) %>%
+         svd2_dim1, theta, theta_se, theta_lo, theta_hi, theta_hs) %>%
   mutate(across(where(is.numeric), ~ round(.x, 4)))
 
 write_json(plotly_data, "results/plotly_data.json", dataframe = "rows", na = "null")
