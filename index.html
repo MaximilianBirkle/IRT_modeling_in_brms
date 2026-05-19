@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Scaling the Bundestag: Ideal-Point Estimation from Roll-Call Votes</title>
+<title>Scaling the Bundestag &middot; Ideal-Point Estimation &middot; Uni Mannheim</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -155,15 +155,18 @@ li{margin-bottom:.25rem}
 .hero-stat{
   background:rgba(255,255,255,0.05);
   border:1px solid rgba(255,255,255,0.1);
-  border-radius:12px;padding:1.2rem .8rem;text-align:center;
+  border-radius:12px;padding:1.3rem .9rem;text-align:center;
   backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
 }
-.hero-stat-icon{font-size:1.5rem;display:block;margin-bottom:.4rem;line-height:1}
+.hs-c1{border-top:3px solid #4a7fa5}
+.hs-c2{border-top:3px solid #E3000F}
+.hs-c3{border-top:3px solid #64A12D}
+.hs-c4{border-top:3px solid #009EE0}
 .hero-stat-val{
-  font-family:"Source Serif 4",serif;font-size:2rem;font-weight:700;
-  line-height:1;display:block;margin-bottom:.3rem;color:#fff;
+  font-family:"Source Serif 4",serif;font-size:2.1rem;font-weight:700;
+  line-height:1;display:block;margin-bottom:.35rem;color:#fff;
 }
-.hero-stat-lbl{font-size:.72rem;color:#4a7fa5;text-transform:uppercase;letter-spacing:.07em}
+.hero-stat-lbl{font-size:.7rem;color:#4a7fa5;text-transform:uppercase;letter-spacing:.1em}
 .hero-caret{
   animation:hero-bounce 1.8s ease-in-out infinite, fade-up 640ms var(--ease-out) 480ms both;
   font-size:1.6rem;opacity:.55;cursor:pointer;display:inline-block;
@@ -384,23 +387,19 @@ footer p+p{margin-top:.6rem;font-size:.8rem;opacity:.8}
       <span>&#128202; Abgeordnetenwatch e.V. data (CC0)</span>
     </div>
     <div class="hero-stats" id="hero-stats">
-      <div class="hero-stat">
-        <span class="hero-stat-icon">&#128101;</span>
+      <div class="hero-stat hs-c1">
         <span class="hero-stat-val hero-counter" data-target="772">772</span>
         <span class="hero-stat-lbl">Legislators</span>
       </div>
-      <div class="hero-stat">
-        <span class="hero-stat-icon">&#128499;</span>
+      <div class="hero-stat hs-c2">
         <span class="hero-stat-val hero-counter" data-target="161">161</span>
         <span class="hero-stat-lbl">Roll-Call Votes</span>
       </div>
-      <div class="hero-stat">
-        <span class="hero-stat-icon">&#128202;</span>
+      <div class="hero-stat hs-c3">
         <span class="hero-stat-val hero-counter" data-target="82.2%">82.2%</span>
         <span class="hero-stat-lbl">Votes Observed</span>
       </div>
-      <div class="hero-stat">
-        <span class="hero-stat-icon">&#9989;</span>
+      <div class="hero-stat hs-c4">
         <span class="hero-stat-val hero-counter" data-target="64%">64%</span>
         <span class="hero-stat-lbl">Yes-Vote Rate</span>
       </div>
