@@ -159,9 +159,10 @@ var_exp1 <- D1^2 / sum(D1^2)
 cat(sprintf("Variance explained — dim 1: %.2f%%  dim 2: %.2f%%\n",
             100 * var_exp1[1], 100 * var_exp1[2]))
 
-# Orient: AfD should be on the positive (right) end
-afd_idx <- which(str_detect(leg_meta$party, "AfD"))
-if (mean(U1[afd_idx, 1]) < 0) {
+# Orient: AfD (right) must be positive — use hard political knowledge vs SPD (left)
+mean_svd_afd <- mean(U1[leg_meta$party == "AfD", 1], na.rm = TRUE)
+mean_svd_spd <- mean(U1[leg_meta$party == "SPD", 1], na.rm = TRUE)
+if (!is.na(mean_svd_afd) && !is.na(mean_svd_spd) && mean_svd_afd < mean_svd_spd) {
   U1[, 1] <- -U1[, 1]; V1[, 1] <- -V1[, 1]
   U1[, 2] <- -U1[, 2]; V1[, 2] <- -V1[, 2]
 }
@@ -303,7 +304,9 @@ V2       <- svd2$v
 var_exp2 <- D2^2 / sum(D2^2)
 
 # Orient consistently (AfD positive)
-if (mean(U2[afd_idx, 1]) < 0) {
+mean_dc_afd <- mean(U2[leg_meta$party == "AfD", 1], na.rm = TRUE)
+mean_dc_spd <- mean(U2[leg_meta$party == "SPD", 1], na.rm = TRUE)
+if (!is.na(mean_dc_afd) && !is.na(mean_dc_spd) && mean_dc_afd < mean_dc_spd) {
   U2[, 1] <- -U2[, 1]; V2[, 1] <- -V2[, 1]
 }
 
@@ -511,26 +514,11 @@ draws_gruen <- party_theta_draws("GRÜNEN")
 draws_linke <- party_theta_draws("Linke")
 draws_fdp   <- party_theta_draws("FDP")
 
-# Orient draws to match the oriented theta (already SVD-aligned)
-# Use correlation between draw means and oriented theta to decide flip
-draw_means <- sapply(names(party_draws_list_tmp <- list(
-  afd=draws_afd, cdu=draws_cdu, spd=draws_spd, gruen=draws_gruen,
-  linke=draws_linke, fdp=draws_fdp)), function(nm) {
-    d <- party_draws_list_tmp[[nm]]
-    if (is.null(d)) NA_real_ else mean(d)
-  })
-
-# Check direction: AfD should be more positive than SPD
-afd_mean_draw  <- if (!is.null(draws_afd)) mean(draws_afd) else NA_real_
-spd_mean_draw  <- if (!is.null(draws_spd)) mean(draws_spd) else NA_real_
-
-# AfD is right-wing so should have higher theta than SPD
-# Compare with oriented theta: check if test_cor_irt was negative (meaning we already flipped theta)
-# draws should match the same orientation as theta_df
-if (test_cor_irt < 0) {
-  draws_afd   <- if (!is.null(draws_afd))   -draws_afd   else NULL
+# Orient draws: AfD must be RIGHT of SPD — hard political knowledge
+if (!is.null(draws_afd) && !is.null(draws_spd) && mean(draws_afd) < mean(draws_spd)) {
+  draws_afd   <- -draws_afd
   draws_cdu   <- if (!is.null(draws_cdu))   -draws_cdu   else NULL
-  draws_spd   <- if (!is.null(draws_spd))   -draws_spd   else NULL
+  draws_spd   <- -draws_spd
   draws_gruen <- if (!is.null(draws_gruen)) -draws_gruen else NULL
   draws_linke <- if (!is.null(draws_linke)) -draws_linke else NULL
   draws_fdp   <- if (!is.null(draws_fdp))   -draws_fdp   else NULL
@@ -778,5 +766,8 @@ top10_neg <- slice_min(vote_meta, svd_loading1, n = 5) %>%
 
 write_json(list(positive = top10_pos, negative = top10_neg),
            "results/extreme_votes.json", dataframe = "rows")
+
+write_json(party_draws_df %>% select(party, theta),
+           "results/party_draws.json", dataframe = "rows")
 
 cat("=== Analysis complete. Run build_site.R to generate index.html ===\n")

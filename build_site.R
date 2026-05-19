@@ -10,10 +10,12 @@ suppressPackageStartupMessages({
 })
 
 cat("Reading results...\n")
-stats     <- fromJSON("results/summary_stats.json")
-votes_ext <- fromJSON("results/extreme_votes.json")
-plotly_raw <- readLines("results/plotly_data.json", warn = FALSE)
-plotly_json <- paste(plotly_raw, collapse = "\n")
+stats          <- fromJSON("results/summary_stats.json")
+votes_ext      <- fromJSON("results/extreme_votes.json")
+plotly_raw     <- readLines("results/plotly_data.json", warn = FALSE)
+plotly_json    <- paste(plotly_raw, collapse = "\n")
+draws_raw      <- readLines("results/party_draws.json", warn = FALSE)
+draws_json     <- paste(draws_raw, collapse = "\n")
 
 # ---------- helpers -----------------------------------------------------------
 
@@ -99,8 +101,10 @@ sub_map <- c(
   "@@POS_VOTES@@"           = pos_votes_html,
   "@@NEG_VOTES@@"           = neg_votes_html,
   "@@PLOTLY_DATA@@"         = plotly_json,
+  "@@PARTY_DRAWS_DATA@@"    = draws_json,
   "@@COR_HS_BASE@@"         = corr(stats$cor_hs_base),
-  "@@RMSD_HS@@"             = sprintf("%.3f", stats$rmsd_hs)
+  "@@RMSD_HS@@"             = sprintf("%.3f", stats$rmsd_hs),
+  "@@P_LINKE_GT_GRUEN@@"    = prob(1 - stats$p_linke_lt_gruen)
 )
 
 # ---------- HTML template -----------------------------------------------------
@@ -110,7 +114,7 @@ template <- '<!DOCTYPE html>
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Ideal-Point Estimation: Bundestag 20th Wahlperiode</title>
+<title>Scaling the Bundestag: Ideal-Point Estimation from Roll-Call Votes</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -138,7 +142,7 @@ nav{position:sticky;top:0;z-index:100;background:var(--navy-dark);border-bottom:
 /* HERO */
 .hero{background:linear-gradient(135deg,var(--navy-dark) 0%,var(--navy) 100%);color:#fff;padding:5rem 2rem 4rem}
 .hero-inner{max-width:1100px;margin:0 auto;display:grid;grid-template-columns:auto 1fr;gap:2.5rem;align-items:center}
-.hero-logo img{width:110px;filter:brightness(0) invert(1);opacity:.9}
+.hero-logo img{height:70px;width:auto;filter:brightness(0) invert(1);opacity:.9;padding:0 1.4rem 0 0}
 .hero-text h1{font-family:"Source Serif 4",serif;font-size:2.1rem;font-weight:700;line-height:1.2;margin-bottom:.6rem}
 .hero-text .subtitle{font-size:1.05rem;opacity:.88;margin-bottom:1.2rem;line-height:1.5}
 .hero-meta{display:flex;gap:1.8rem;flex-wrap:wrap;font-size:.86rem;opacity:.75;border-top:1px solid rgba(255,255,255,.22);padding-top:1rem}
@@ -148,7 +152,7 @@ nav{position:sticky;top:0;z-index:100;background:var(--navy-dark);border-bottom:
 section{padding:3.5rem 0;border-bottom:1px solid var(--border)}
 section:last-child{border-bottom:none}
 .section-header{display:flex;align-items:baseline;gap:.9rem;margin-bottom:2rem}
-.section-num{font-family:"Source Serif 4",serif;font-size:2.8rem;font-weight:700;color:var(--navy-light);line-height:1;flex-shrink:0}
+.section-num{font-family:"Source Serif 4",serif;font-size:2.8rem;font-weight:700;color:rgba(0,48,86,0.18);line-height:1;flex-shrink:0}
 h2{font-family:"Source Serif 4",serif;font-size:1.7rem;font-weight:700;color:var(--navy-dark);line-height:1.2}
 h3{font-family:"Source Serif 4",serif;font-size:1.2rem;font-weight:600;color:var(--navy-dark);margin:2rem 0 .75rem;padding-left:.8rem;border-left:3px solid var(--navy)}
 p{margin-bottom:.9rem;max-width:720px}p:last-child{margin-bottom:0}
@@ -210,11 +214,16 @@ tr:nth-child(even){background:var(--navy-light)}
 .prompt-body{padding:.85rem 1rem;font-size:.87rem;line-height:1.6;max-width:720px}
 
 /* FOOTER */
-footer{background:var(--navy-dark);color:rgba(255,255,255,.72);text-align:center;padding:2rem;font-size:.84rem}
+footer{background:var(--navy-dark);color:rgba(255,255,255,.72);text-align:center;font-size:.84rem}
+footer .footer-inner{max-width:1100px;margin:0 auto;padding:2rem 2rem}
 footer a{color:#7eb8e0;text-decoration:none}
 
+/* PLOTLY INLINE FIGURES */
+.plotly-fig{width:100%;height:460px}
+.plotly-fig-lg{width:100%;height:420px}
+
 /* TOC SIDEBAR */
-.toc-sidebar{position:fixed;left:max(8px,calc(50% - 680px));top:160px;width:168px;z-index:50;
+.toc-sidebar{position:fixed;left:max(8px,calc(50% - 750px));top:160px;width:168px;z-index:50;
   font-size:.77rem;padding:.9rem;background:rgba(255,255,255,.97);
   border:1px solid var(--border);border-radius:8px;
   box-shadow:0 2px 10px rgba(0,48,86,.1);display:none}
@@ -224,7 +233,7 @@ footer a{color:#7eb8e0;text-decoration:none}
   padding:.22rem 0 .22rem .55rem;border-left:2px solid transparent;
   transition:all .15s;line-height:1.3}
 .toc-sidebar a:hover,.toc-sidebar a.toc-active{color:var(--navy);border-left-color:var(--navy);font-weight:600}
-@media(min-width:1420px){.toc-sidebar{display:block}}
+@media(min-width:1520px){.toc-sidebar{display:block}}
 
 /* RESPONSIVE */
 @media(max-width:700px){
@@ -267,20 +276,48 @@ footer a{color:#7eb8e0;text-decoration:none}
 </nav>
 
 <!-- HERO -->
-<header class="hero">
+<header class="hero" style="position:relative;overflow:hidden">
+  <svg viewBox="0 0 340 220" xmlns="http://www.w3.org/2000/svg"
+       style="position:absolute;right:2%;bottom:0;height:96%;opacity:0.06;pointer-events:none;fill:white">
+    <!-- Reichstag silhouette: base, wings, dome -->
+    <rect x="10" y="130" width="320" height="90"/>
+    <rect x="30" y="100" width="280" height="35"/>
+    <rect x="50" y="80" width="240" height="25"/>
+    <!-- columns -->
+    <rect x="65"  y="80" width="9" height="50"/>
+    <rect x="90"  y="80" width="9" height="50"/>
+    <rect x="115" y="80" width="9" height="50"/>
+    <rect x="140" y="80" width="9" height="50"/>
+    <rect x="165" y="80" width="9" height="50"/>
+    <rect x="190" y="80" width="9" height="50"/>
+    <rect x="215" y="80" width="9" height="50"/>
+    <rect x="240" y="80" width="9" height="50"/>
+    <rect x="265" y="80" width="9" height="50"/>
+    <!-- corner towers -->
+    <rect x="10" y="60" width="45" height="70"/>
+    <rect x="285" y="60" width="45" height="70"/>
+    <!-- dome base -->
+    <rect x="130" y="50" width="80" height="30"/>
+    <!-- dome -->
+    <ellipse cx="170" cy="50" rx="45" ry="35"/>
+    <ellipse cx="170" cy="30" rx="22" ry="18"/>
+    <!-- dome lantern -->
+    <rect x="162" y="10" width="16" height="20"/>
+    <polygon points="170,0 158,10 182,10"/>
+  </svg>
   <div class="hero-inner">
     <div class="hero-logo">
       <img src="Uni-mannheim.svg.png" alt="University of Mannheim">
     </div>
     <div class="hero-text">
-      <h1>Ideal-Point Estimation from Bundestag Roll-Call Votes</h1>
+      <h1>Scaling the Bundestag: Ideal-Point Estimation from Roll-Call Votes</h1>
       <p class="subtitle">
-        Scaling the 20th German Bundestag (2021&ndash;2025) using SVD and Bayesian 2PL Item Response Theory
+        20th Wahlperiode (2021&ndash;2025) &middot; SVD and Bayesian 2PL IRT
       </p>
       <div class="hero-meta">
         <span>&#128197; 20th Wahlperiode &middot; 2021&ndash;2025 (Ampel coalition)</span>
         <span>&#128202; @@N_LEGISLATORS@@ legislators &times; @@N_VOTES@@ votes</span>
-        <span>&#127979; Bayesian Statistics &middot; Uni Mannheim &middot; FSS 2026</span>
+        <span>&#127979; DS 201 &middot; Bayesian Statistics &middot; Uni Mannheim &middot; FSS 2026</span>
       </div>
     </div>
   </div>
@@ -288,19 +325,55 @@ footer a{color:#7eb8e0;text-decoration:none}
 
 <main>
 
-<!-- INTRODUCTION -->
+<!-- INTRODUCTION / METHODS OVERVIEW -->
 <section id="intro">
   <div class="container">
     <div class="section-header">
       <span class="section-num">00</span>
-      <div><h2>Introduction</h2></div>
+      <div><h2>Methods Overview</h2></div>
     </div>
 
     <p>
       How do we measure the political positions of legislators when all we can observe is how
       they vote? This is the problem of <strong>ideal-point estimation</strong> &mdash; placing each
       member of parliament at a point on a latent ideological scale using only the binary
-      pattern of yes and no votes.
+      pattern of yes and no votes. The key insight is that legislative voting data contains
+      hidden structure: legislators who share similar ideological positions tend to vote alike
+      across many bills. By recovering this latent structure statistically, we can place every
+      legislator on a continuous scale without relying on self-reported positions, party labels,
+      or manifesto data.
+    </p>
+    <p>
+      The <strong>Singular Value Decomposition (SVD)</strong> is the geometric workhorse of
+      ideal-point estimation. Given a complete legislator &times; vote matrix X, the SVD
+      factorizes it as X = UDV&#x1D40;, where U is the matrix of <em>legislator scores</em>
+      (ideal points), D is a diagonal matrix of singular values (capturing how much variance
+      each dimension explains), and V is the matrix of <em>vote loadings</em> (how
+      discriminating each vote is). The first column of U, scaled by D[1,1], gives each
+      legislator a one-dimensional ideal point. Because the raw vote matrix has missing entries
+      (abstentions, absences), we first impute or double-center the matrix before applying SVD.
+    </p>
+    <p>
+      The <strong>two-parameter logistic (2PL) Item Response Theory</strong> model goes further.
+      Rather than treating every vote as equally informative, the 2PL IRT model estimates a
+      <em>discrimination</em> parameter &alpha;<sub>j</sub> for each vote j alongside a
+      <em>difficulty</em> &beta;<sub>j</sub>. The item characteristic curve is:
+      $$P(X_{ij}=1 \\mid \\theta_i, \\alpha_j, \\beta_j) = \\text{logistic}(\\alpha_j(\\theta_i - \\beta_j))$$
+      where &theta;<sub>i</sub> is legislator i&rsquo;s ideal point. Votes with high &alpha;
+      are sharply discriminating (the probability curve transitions steeply from 0 to 1 as a
+      legislator moves from left to right), while low-&alpha; votes add little information.
+      Following B&uuml;rkner (2021), we implement the 2PL model in brms using a nonlinear
+      mixed-model formula, which passes the likelihood to Stan&rsquo;s Hamiltonian Monte Carlo
+      sampler and returns a full posterior distribution over all parameters.
+    </p>
+    <p>
+      The key difference between SVD and IRT is <strong>uncertainty quantification</strong>.
+      SVD returns point estimates only; the IRT model returns an entire posterior distribution
+      over each legislator&rsquo;s ideal point and each vote&rsquo;s item parameters.
+      This enables probability statements such as &ldquo;the AfD&rsquo;s mean ideal point
+      exceeds the CDU/CSU&rsquo;s with probability 100%&rdquo; &mdash; a claim that SVD alone
+      cannot support. The brms identification constraint (SD of person effects = 1) fixes the
+      scale of &theta;, making estimates comparable across models.
     </p>
     <p>
       We scale every recorded <em>namentliche Abstimmung</em> (roll-call vote) of the 20th German
@@ -312,21 +385,21 @@ footer a{color:#7eb8e0;text-decoration:none}
       issues (defence, climate, debt brake) that challenged simple left-right alignment.
     </p>
 
-    <div class="stats-grid">
+    <div class="stats-grid" id="hero-stats">
       <div class="stat-card">
-        <div class="stat-value">@@N_LEGISLATORS@@</div>
+        <div class="stat-value stat-counter" data-target="@@N_LEGISLATORS@@">@@N_LEGISLATORS@@</div>
         <div class="stat-label">Legislators</div>
       </div>
       <div class="stat-card">
-        <div class="stat-value">@@N_VOTES@@</div>
+        <div class="stat-value stat-counter" data-target="@@N_VOTES@@">@@N_VOTES@@</div>
         <div class="stat-label">Roll-Call Votes</div>
       </div>
       <div class="stat-card">
-        <div class="stat-value">@@PCT_OBSERVED@@</div>
+        <div class="stat-value stat-counter" data-target="@@PCT_OBSERVED@@">@@PCT_OBSERVED@@</div>
         <div class="stat-label">Votes Observed</div>
       </div>
       <div class="stat-card">
-        <div class="stat-value">@@GRAND_MEAN_PCT@@</div>
+        <div class="stat-value stat-counter" data-target="@@GRAND_MEAN_PCT@@">@@GRAND_MEAN_PCT@@</div>
         <div class="stat-label">Yes-Vote Rate</div>
       </div>
     </div>
@@ -434,13 +507,12 @@ var_exp  <span class="kw">&lt;-</span> D1<span class="kw">^</span><span class="n
     </p>
 
     <div class="figure-block">
-      <img src="figures/02_svd_dim1_by_party.png" alt="SVD dimension-1 scores by party">
+      <div id="fig2-container" class="plotly-fig"></div>
       <div class="figure-caption">
-        <strong>Figure 2.</strong> SVD dimension-1 ideal points by party. Each dot is one
-        legislator; the black diamond is the party mean. The Ampel parties cluster to the left,
-        CDU/CSU sits in the centre-right, and the AfD anchors the far right. Within-party
-        spread reflects cross-pressure votes (e.g., on migration, defence spending) and
-        individual dissidents.
+        <strong>Figure 2.</strong> SVD dimension-1 ideal points by party (interactive). Each
+        dot is one legislator; hover for name and score. The Ampel coalition parties cluster
+        to the left, CDU/CSU sits in the centre-right, and the AfD anchors the far right.
+        Within-party spread reflects cross-pressure votes and individual dissidents.
       </div>
     </div>
 
@@ -672,12 +744,12 @@ X_dc <span class="kw">&lt;-</span> <span class="fn">sweep</span>(<span class="fn
     <h3>Estimated ideal points (&theta;)</h3>
 
     <div class="figure-block">
-      <img src="figures/06_irt_theta.png" alt="IRT posterior mean ideal points by party">
+      <div id="fig6-container" class="plotly-fig"></div>
       <div class="figure-caption">
-        <strong>Figure 6.</strong> Posterior mean ideal points (&theta;) by party from the 2PL
-        IRT model. The party ordering is identical to the SVD result, confirming the latent
-        dimension is robust across estimation methods. Each dot is one legislator&rsquo;s
-        posterior mean; the black diamond is the unweighted party mean.
+        <strong>Figure 6.</strong> IRT posterior mean ideal points (&theta;) by party
+        (interactive). Each dot is one legislator&rsquo;s posterior mean; hover for name,
+        party, and 95% credible interval. The party ordering matches the SVD result, confirming
+        both methods recover the same latent dimension.
       </div>
     </div>
 
@@ -720,12 +792,17 @@ X_dc <span class="kw">&lt;-</span> <span class="fn">sweep</span>(<span class="fn
     <h3>The claim</h3>
     <div class="callout">
       <div class="callout-title">Main finding</div>
-      The 20th Bundestag is ordered along a single dominant latent dimension. The AfD sits to
-      the right of the CDU/CSU, which sits to the right of the governing coalition, which sits
-      to the right of Die Linke. This ordering is near-certain under the posterior: the
-      probability that AfD&rsquo;s mean ideal point exceeds CDU/CSU&rsquo;s mean ideal point
-      is <strong>@@P_AFD_GT_CDU@@</strong>, and the 95% credible interval for the difference
-      is <strong>@@CI_DIFF_AFD_CDU@@</strong> &mdash; entirely above zero.
+      The 20th Bundestag is scaled along a single dominant latent dimension capturing
+      <strong>government-vs-opposition</strong> voting. The AfD is clearly more extreme than
+      the CDU/CSU along this axis: the probability that AfD&rsquo;s mean ideal point exceeds
+      CDU/CSU&rsquo;s is <strong>@@P_AFD_GT_CDU@@</strong>, and the 95% credible interval
+      for the difference is <strong>@@CI_DIFF_AFD_CDU@@</strong> &mdash; entirely positive.
+      The AfD also sits unambiguously to the right of the SPD (probability
+      <strong>@@P_AFD_GT_SPD@@</strong>). Notably, Die Linke clusters with the right-wing
+      opposition (AfD, CDU/CSU) in vote-based space rather than with the Ampel coalition
+      parties (SPD, Gr&uuml;nen, FDP): its members voted against the government on nearly
+      every bill, just as the AfD and CDU/CSU did. This is a feature of the latent dimension
+      &mdash; it captures <em>coalition membership</em> more than traditional left-right ideology.
     </div>
 
     <h3>Posterior computation</h3>
@@ -755,8 +832,8 @@ p_afd_gt_cdu <span class="kw">&lt;-</span> <span class="fn">mean</span>(afd_draw
         <div class="stat-label">P(&theta;&#772;_AfD &gt; &theta;&#772;_CDU)</div>
       </div>
       <div class="stat-card">
-        <div class="stat-value">@@P_LINKE_LT_GRUEN@@</div>
-        <div class="stat-label">P(&theta;&#772;_Linke &lt; &theta;&#772;_Gr&uuml;nen)</div>
+        <div class="stat-value">@@P_LINKE_GT_GRUEN@@</div>
+        <div class="stat-label">P(&theta;&#772;_Linke &gt; &theta;&#772;_Gr&uuml;nen)</div>
       </div>
       <div class="stat-card">
         <div class="stat-value">@@P_AFD_GT_SPD@@</div>
@@ -769,13 +846,13 @@ p_afd_gt_cdu <span class="kw">&lt;-</span> <span class="fn">mean</span>(afd_draw
     </div>
 
     <div class="figure-block">
-      <img src="figures/08_posterior_parties.png" alt="Posterior distributions of party mean ideal points">
+      <div id="fig8-container" class="plotly-fig-lg"></div>
       <div class="figure-caption">
         <strong>Figure 8.</strong> Posterior distributions of party mean ideal points from
-        500 MCMC draws. Each density shows the full uncertainty about where a party&rsquo;s
-        average &theta; lies, not just a point estimate. Vertical lines mark 95% credible
-        intervals. The distributions barely overlap, indicating the party ordering is
-        near-certain.
+        500 MCMC draws (interactive violin plot). Each shape shows the full uncertainty about
+        where a party&rsquo;s average &theta; lies, not just a point estimate. The boxes
+        inside mark the 25th&ndash;75th percentile; the middle line is the median.
+        Hover for quantile values. Parties ordered left to right by posterior mean.
       </div>
     </div>
 
@@ -796,9 +873,9 @@ p_afd_gt_cdu <span class="kw">&lt;-</span> <span class="fn">mean</span>(afd_draw
       Even though individual legislators have substantial uncertainty, the <em>ordering of party
       means</em> is much more certain. Averaging over 80&ndash;200 legislators within a party,
       the standard error of the party mean shrinks by roughly 1/&radic;n. The posterior
-      probability that the AfD&rsquo;s mean ideal point exceeds CDU/CSU&rsquo;s is @@P_AFD_GT_CDU@@
-      &mdash; near-certain &mdash; even though some individual AfD and CDU MPs have overlapping
-      credible intervals.
+      probability that the AfD&rsquo;s mean ideal point exceeds CDU/CSU&rsquo;s is
+      <strong>@@P_AFD_GT_CDU@@</strong> &mdash; near-certain &mdash; even though some
+      individual AfD and CDU MPs have overlapping credible intervals.
     </div>
 
     <h3>What the model shows vs. what we infer</h3>
@@ -1074,17 +1151,22 @@ fit_hs <span class="kw">&lt;-</span> <span class="fn">brm</span>(
 </main>
 
 <footer>
-  <p>
-    Maximilian Birkle &middot; Student ID: 1831999 &middot;
-    Mannheim Master in Social Data Science &middot; FSS 2026<br>
-    Data: <a href="https://www.abgeordnetenwatch.de">Abgeordnetenwatch e.V.</a> (CC0) &middot;
-    Analysis: <a href="https://paul-buerkner.github.io/brms/">brms</a> / Stan &middot;
-    Charts: <a href="https://plotly.com/javascript/">Plotly.js</a>
-  </p>
+  <div class="footer-inner">
+    <p>
+      Maximilian Birkle &middot; Student ID: 1831999 &middot;
+      MMDS &middot; DS 201 Bayesian Statistics &middot; Uni Mannheim &middot; FSS 2026
+    </p>
+    <p style="margin-top:.6rem;opacity:.8;font-size:.8rem">
+      Data: <a href="https://www.abgeordnetenwatch.de">Abgeordnetenwatch e.V.</a> (CC0) &middot;
+      Analysis: <a href="https://paul-buerkner.github.io/brms/">brms</a> / Stan &middot;
+      Charts: <a href="https://plotly.com/javascript/">Plotly.js</a>
+    </p>
+  </div>
 </footer>
 
 <script>
-const RAW_DATA = @@PLOTLY_DATA@@;
+const RAW_DATA       = @@PLOTLY_DATA@@;
+const PARTY_DRAWS    = @@PARTY_DRAWS_DATA@@;
 
 const PARTY_COLORS = {
   "SPD":                   "#E3000F",
@@ -1104,6 +1186,145 @@ const PARTY_SHORT = {
 
 function shortP(p) { return PARTY_SHORT[p] || p; }
 
+const plotConfig = {
+  responsive: true, displayModeBar: true,
+  modeBarButtonsToRemove: ["lasso2d","select2d"],
+  toImageButtonOptions: { format:"png", filename:"bundestag_ideal_points" }
+};
+
+/* ===== FIGURE 2: SVD dim1 strip by party ===== */
+(function buildFig2() {
+  const field = "svd_dim1";
+  const byParty = {};
+  RAW_DATA.forEach(d => {
+    if (d[field] == null) return;
+    if (!byParty[d.party]) byParty[d.party] = [];
+    byParty[d.party].push(d);
+  });
+  const partyOrder = Object.keys(byParty)
+    .filter(p => PARTY_COLORS[p])
+    .sort((a,b) => {
+      const ma = byParty[a].reduce((s,d) => s + d[field], 0) / byParty[a].length;
+      const mb = byParty[b].reduce((s,d) => s + d[field], 0) / byParty[b].length;
+      return ma - mb;
+    });
+  const traces = partyOrder.map(party => {
+    const rows = byParty[party];
+    return {
+      type: "box", orientation: "h",
+      name: shortP(party),
+      x: rows.map(d => d[field]),
+      y: rows.map(_ => shortP(party)),
+      marker: { color: PARTY_COLORS[party], size: 5, opacity: 0.55 },
+      line: { color: PARTY_COLORS[party] },
+      fillcolor: PARTY_COLORS[party] + "28",
+      boxpoints: "all", jitter: 0.45, pointpos: 0,
+      whiskerwidth: 0.6, boxmean: false,
+      text: rows.map(d => "<b>" + d.legislator + "</b><br>" + shortP(d.party) + "<br>SVD dim1: " + (d[field]||0).toFixed(3)),
+      hovertemplate: "%{text}<extra></extra>"
+    };
+  });
+  Plotly.newPlot("fig2-container", traces, {
+    title: { text: "SVD Dimension-1 Ideal Points by Party", font:{size:14,color:"#00203f"}, x:0.02, xanchor:"left" },
+    xaxis: { title:{text:"SVD Score (Dimension 1) — left to right",font:{size:12}}, zeroline:true, zerolinecolor:"#bbb", gridcolor:"#eee" },
+    yaxis: { automargin:true },
+    showlegend: false,
+    plot_bgcolor:"#fafcfd", paper_bgcolor:"#ffffff",
+    hoverlabel: { bgcolor:"#fff", bordercolor:"#999", font:{size:12} },
+    margin: { l:80, r:20, t:50, b:50 }
+  }, plotConfig);
+})();
+
+/* ===== FIGURE 6: IRT theta strip by party ===== */
+(function buildFig6() {
+  const field = "theta";
+  const byParty = {};
+  RAW_DATA.forEach(d => {
+    if (d[field] == null) return;
+    if (!byParty[d.party]) byParty[d.party] = [];
+    byParty[d.party].push(d);
+  });
+  const partyOrder = Object.keys(byParty)
+    .filter(p => PARTY_COLORS[p])
+    .sort((a,b) => {
+      const ma = byParty[a].reduce((s,d) => s + d[field], 0) / byParty[a].length;
+      const mb = byParty[b].reduce((s,d) => s + d[field], 0) / byParty[b].length;
+      return ma - mb;
+    });
+  const traces = partyOrder.map(party => {
+    const rows = byParty[party];
+    return {
+      type: "box", orientation: "h",
+      name: shortP(party),
+      x: rows.map(d => d[field]),
+      y: rows.map(_ => shortP(party)),
+      marker: { color: PARTY_COLORS[party], size: 5, opacity: 0.55 },
+      line: { color: PARTY_COLORS[party] },
+      fillcolor: PARTY_COLORS[party] + "28",
+      boxpoints: "all", jitter: 0.45, pointpos: 0,
+      whiskerwidth: 0.6, boxmean: false,
+      text: rows.map(d =>
+        "<b>" + d.legislator + "</b><br>" + shortP(d.party) +
+        "<br>θ: " + (d.theta||0).toFixed(2) +
+        " [" + (d.theta_lo||0).toFixed(2) + ", " + (d.theta_hi||0).toFixed(2) + "]"
+      ),
+      hovertemplate: "%{text}<extra></extra>"
+    };
+  });
+  Plotly.newPlot("fig6-container", traces, {
+    title: { text: "IRT Posterior Mean Ideal Points (θ) by Party", font:{size:14,color:"#00203f"}, x:0.02, xanchor:"left" },
+    xaxis: { title:{text:"Posterior Mean Ideal Point (θ) — left to right",font:{size:12}}, zeroline:true, zerolinecolor:"#bbb", gridcolor:"#eee" },
+    yaxis: { automargin:true },
+    showlegend: false,
+    plot_bgcolor:"#fafcfd", paper_bgcolor:"#ffffff",
+    hoverlabel: { bgcolor:"#fff", bordercolor:"#999", font:{size:12} },
+    margin: { l:80, r:20, t:50, b:50 }
+  }, plotConfig);
+})();
+
+/* ===== FIGURE 8: Posterior draws violin by party ===== */
+(function buildFig8() {
+  const byParty = {};
+  PARTY_DRAWS.forEach(d => {
+    if (!byParty[d.party]) byParty[d.party] = [];
+    byParty[d.party].push(d.theta);
+  });
+  const partyOrder = Object.keys(byParty)
+    .sort((a,b) => {
+      const ma = byParty[a].reduce((s,v) => s+v, 0) / byParty[a].length;
+      const mb = byParty[b].reduce((s,v) => s+v, 0) / byParty[b].length;
+      return ma - mb;
+    });
+  const partyColorMap = {
+    "AfD": "#009EE0", "CDU/CSU": "#444444", "SPD": "#E3000F",
+    "BÜNDNIS 90/DIE GRÜNEN": "#64A12D", "FDP": "#CCBB00",
+    "Die Linke": "#BE3075"
+  };
+  const traces = partyOrder.map(party => ({
+    type: "violin", orientation: "h",
+    name: shortP(party),
+    x: byParty[party],
+    y: byParty[party].map(_ => shortP(party)),
+    box: { visible: true },
+    meanline: { visible: true },
+    points: false,
+    fillcolor: (partyColorMap[party] || "#888888") + "50",
+    line: { color: partyColorMap[party] || "#888888" },
+    hovertemplate: shortP(party) + "<br>median: %{median:.2f}<extra></extra>"
+  }));
+  Plotly.newPlot("fig8-container", traces, {
+    title: { text: "Posterior Distributions of Party Mean Ideal Points (500 MCMC Draws)", font:{size:13,color:"#00203f"}, x:0.02, xanchor:"left" },
+    xaxis: { title:{text:"Party Mean Ideal Point (θ)",font:{size:12}}, zeroline:true, zerolinecolor:"#bbb", gridcolor:"#eee" },
+    yaxis: { automargin:true },
+    showlegend: false,
+    plot_bgcolor:"#fafcfd", paper_bgcolor:"#ffffff",
+    hoverlabel: { bgcolor:"#fff", bordercolor:"#999", font:{size:12} },
+    margin: { l:80, r:20, t:50, b:50 },
+    violingap: 0.05, violingroupgap: 0
+  }, plotConfig);
+})();
+
+/* ===== FIGURE 5: Interactive explorer (theta vs SVD dim2) ===== */
 const parties = [...new Set(RAW_DATA.map(d => d.party))].sort();
 
 function buildTraces(hl) {
@@ -1131,56 +1352,63 @@ function buildTraces(hl) {
   });
 }
 
-const layout = {
-  title: {
-    text: "Ideal Point Estimates — 20th Bundestag (Wahlperiode 20, 2021–2025)",
-    font: {size: 14, color: "#00203f"},
-    x: 0.02, xanchor: "left"
-  },
-  xaxis: { title: { text: "IRT Ideal Point (θ) — left to right", font: {size:13} },
-           zeroline:true, zerolinecolor:"#ccc", gridcolor:"#eee" },
-  yaxis: { title: { text: "SVD Dimension 2", font: {size:13} },
-           zeroline:true, zerolinecolor:"#ccc", gridcolor:"#eee" },
-  legend: { title:{text:"Party"}, bgcolor:"rgba(255,255,255,.9)",
-            bordercolor:"#ddd", borderwidth:1 },
+const layout5 = {
+  title: { text: "Ideal Point Estimates — 20th Bundestag (2021–2025)", font:{size:14,color:"#00203f"}, x:0.02, xanchor:"left" },
+  xaxis: { title:{text:"IRT Ideal Point (θ) — left to right",font:{size:13}}, zeroline:true, zerolinecolor:"#ccc", gridcolor:"#eee" },
+  yaxis: { title:{text:"SVD Dimension 2",font:{size:13}}, zeroline:true, zerolinecolor:"#ccc", gridcolor:"#eee" },
+  legend: { title:{text:"Party"}, bgcolor:"rgba(255,255,255,.9)", bordercolor:"#ddd", borderwidth:1 },
   plot_bgcolor:"#fafcfd", paper_bgcolor:"#ffffff",
   hoverlabel: { bgcolor:"#fff", bordercolor:"#999", font:{size:13} },
-  margin: { l:60, r:20, t:54, b:60 },
-  hovermode: "closest"
+  margin: { l:60, r:20, t:54, b:60 }, hovermode:"closest"
 };
 
-const config = {
-  responsive: true,
-  displayModeBar: true,
-  modeBarButtonsToRemove: ["lasso2d","select2d"],
-  toImageButtonOptions: { format:"png", filename:"bundestag_ideal_points" }
-};
-
-Plotly.newPlot("plot-container", buildTraces("all"), layout, config);
+Plotly.newPlot("plot-container", buildTraces("all"), layout5, plotConfig);
 
 function highlightParty(p) {
-  Plotly.react("plot-container", buildTraces(p), layout, config);
+  Plotly.react("plot-container", buildTraces(p), layout5, plotConfig);
 }
 
-/* ---- Collapsible code blocks ---- */
+/* ===== Animated stat counters ===== */
+function animateCounters() {
+  document.querySelectorAll(".stat-counter").forEach(function(el) {
+    const raw = el.dataset.target || el.textContent;
+    const num = parseFloat(raw.replace(/[^0-9.]/g, ""));
+    const suffix = raw.replace(/[0-9.]/g, "");
+    if (isNaN(num)) return;
+    const dur = 1400, fps = 60, steps = Math.round(dur / (1000/fps));
+    let step = 0;
+    el.textContent = "0" + suffix;
+    const id = setInterval(function() {
+      step++;
+      const progress = step / steps;
+      const eased = 1 - Math.pow(1 - progress, 3);
+      const current = num * eased;
+      el.textContent = (Number.isInteger(num) ? Math.round(current) : current.toFixed(1)) + suffix;
+      if (step >= steps) { el.textContent = raw; clearInterval(id); }
+    }, 1000/fps);
+  });
+}
+
+const statsObs = new IntersectionObserver(function(entries) {
+  entries.forEach(e => { if (e.isIntersecting) { animateCounters(); statsObs.disconnect(); } });
+}, { threshold: 0.3 });
+const heroStats = document.getElementById("hero-stats");
+if (heroStats) statsObs.observe(heroStats);
+
+/* ===== Collapsible code blocks ===== */
 document.addEventListener("DOMContentLoaded", function() {
   document.querySelectorAll(".code-block").forEach(function(block) {
     const label = block.querySelector(".code-label");
     const pre   = block.querySelector("pre");
     if (!label || !pre) return;
-
-    /* wrap pre in a collapsible div */
     const wrapper = document.createElement("div");
     wrapper.className = "code-content";
     pre.parentNode.insertBefore(wrapper, pre);
     wrapper.appendChild(pre);
-
-    /* add toggle button */
     const btn = document.createElement("span");
     btn.className = "code-toggle-btn";
     btn.textContent = "Show code ▼";
     label.appendChild(btn);
-
     label.addEventListener("click", function() {
       const open = wrapper.style.display !== "none";
       wrapper.style.display = open ? "none" : "block";
@@ -1188,20 +1416,16 @@ document.addEventListener("DOMContentLoaded", function() {
     });
   });
 
-  /* ---- TOC active-link highlighting ---- */
+  /* TOC active-link highlighting */
   const tocLinks = document.querySelectorAll(".toc-sidebar a");
   const sections = Array.from(tocLinks)
     .map(a => document.querySelector(a.getAttribute("href")))
     .filter(Boolean);
-
   function onScroll() {
     let current = sections[0];
-    sections.forEach(s => {
-      if (window.scrollY >= s.offsetTop - 120) current = s;
-    });
+    sections.forEach(s => { if (window.scrollY >= s.offsetTop - 120) current = s; });
     tocLinks.forEach(a => {
-      a.classList.toggle("toc-active",
-        a.getAttribute("href") === "#" + current.id);
+      a.classList.toggle("toc-active", a.getAttribute("href") === "#" + current.id);
     });
   }
   window.addEventListener("scroll", onScroll, {passive: true});
