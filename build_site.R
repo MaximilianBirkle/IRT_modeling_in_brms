@@ -1,5 +1,5 @@
 # ==============================================================================
-# build_site.R  —  full design overhaul with Emil Kowalski animation principles
+# build_site.R  —  dark theme + Bundesadler + dark Plotly + UX improvements
 # @@VAR@@ placeholders to avoid sprintf/CSS/JS % conflicts
 # ==============================================================================
 
@@ -24,7 +24,7 @@ he <- function(x) {
 
 vote_li <- function(row) {
   lbl <- coalesce(row$poll_label,""); com <- coalesce(row$committee,"")
-  com <- if(nchar(com)>0) paste0(" <span class='vm'>(", he(com), ")</span>") else ""
+  com <- if(nchar(com)>0) paste0(" <span class=\"vm\">(", he(com), ")</span>") else ""
   sprintf("<li><em>%s</em>%s</li>", he(lbl), com)
 }
 pos_votes_html <- paste(sapply(seq_len(min(5,nrow(votes_ext$positive))),
@@ -89,31 +89,37 @@ template <- '<!DOCTYPE html>
 <script>MathJax={tex:{inlineMath:[["$","$"]],displayMath:[["$$","$$"]]},options:{skipHtmlTags:["script","noscript","style","textarea","pre","code"]}};</script>
 <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js" async></script>
 <style>
-/* ── CUSTOM EASING (Emil Kowalski) ─────────────────────────────────────── */
+/* ── CUSTOM EASING ─────────────────────────────────────────────────────────── */
 :root {
   --ease-out:    cubic-bezier(0.23, 1, 0.32, 1);
   --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
   --navy:        #003056;
   --navy-dark:   #00203f;
   --navy-mid:    #4a7fa5;
-  --navy-light:  #e8eef5;
-  --accent:      #4a7fa5;
-  --text:        #1a2332;
-  --text-muted:  #5a7090;
-  --bg:          #f5f7fa;
-  --border:      #c8d8e8;
-  --code-bg:     #00203f;
+  --bg:          #0a0f1a;
+  --bg-card:     #111827;
+  --bg-code:     #0d1117;
+  --text:        #e8edf4;
+  --text-muted:  #8b9ab0;
+  --border:      #1e293b;
   --nav-h:       56px;
 }
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 html{scroll-behavior:smooth;scroll-padding-top:calc(var(--nav-h) + 16px)}
 body{font-family:"Inter",system-ui,sans-serif;font-size:1rem;line-height:1.75;color:var(--text);background:var(--bg)}
+a{color:var(--navy-mid);text-decoration:none}
+a:hover{color:#7eb8e0;text-decoration:underline}
+strong{color:#e8edf4}
+ul,ol{padding-left:1.4rem;color:var(--text)}
+li{margin-bottom:.25rem}
 
 /* ── NAV ─────────────────────────────────────────────────────────────────── */
 #main-nav{
   position:sticky;top:0;z-index:200;
-  background:var(--navy-dark);
-  border-bottom:1px solid rgba(255,255,255,.08);
+  background:rgba(10,15,26,0.95);
+  backdrop-filter:blur(12px);
+  -webkit-backdrop-filter:blur(12px);
+  border-bottom:1px solid rgba(255,255,255,.06);
   height:var(--nav-h);
 }
 .nav-progress{
@@ -125,14 +131,18 @@ body{font-family:"Inter",system-ui,sans-serif;font-size:1rem;line-height:1.75;co
   max-width:1200px;margin:0 auto;padding:0 2rem;
   height:100%;display:flex;align-items:center;justify-content:space-between;gap:1rem;
 }
-.nav-brand img{height:36px;width:auto;filter:brightness(0) invert(1);opacity:.9;display:block}
-.nav-links{
-  display:flex;gap:.1rem;list-style:none;align-items:center;
+.nav-brand{
+  background:rgba(255,255,255,0.08);border-radius:8px;
+  padding:4px 10px;display:flex;align-items:center;
+  transition:background 160ms ease;
 }
+.nav-brand:hover{background:rgba(255,255,255,0.14)}
+.nav-brand img{height:34px;width:auto;filter:brightness(0) invert(1);opacity:.92;display:block}
+.nav-links{display:flex;gap:.1rem;list-style:none;align-items:center}
 .nav-links a{
-  position:relative;color:rgba(255,255,255,.75);text-decoration:none;
+  position:relative;color:rgba(255,255,255,.72);text-decoration:none;
   font-size:.8rem;font-weight:500;padding:.35rem .65rem;border-radius:5px;
-  transition:color 180ms ease, background 180ms ease;
+  transition:color 180ms ease,background 180ms ease;
 }
 @media(hover:hover) and (pointer:fine){
   .nav-links a::after{
@@ -143,7 +153,8 @@ body{font-family:"Inter",system-ui,sans-serif;font-size:1rem;line-height:1.75;co
   .nav-links a:hover{color:#fff}
   .nav-links a:hover::after{transform:scaleX(1)}
 }
-.nav-links a.nav-active{color:#fff;background:rgba(255,255,255,.1)}
+.nav-links a.nav-active{color:#fff}
+.nav-links a.nav-active::after{transform:scaleX(1)!important;background:var(--navy-mid)}
 .hamburger{
   display:none;background:none;border:1px solid rgba(255,255,255,.3);
   border-radius:6px;color:#fff;padding:.35rem .5rem;cursor:pointer;font-size:1.1rem;
@@ -154,8 +165,9 @@ body{font-family:"Inter",system-ui,sans-serif;font-size:1rem;line-height:1.75;co
   .hamburger{display:block}
   .nav-links{
     display:none;position:absolute;top:var(--nav-h);left:0;right:0;
-    background:var(--navy-dark);flex-direction:column;align-items:flex-start;
-    padding:1rem 2rem;border-bottom:1px solid rgba(255,255,255,.1);gap:.2rem;
+    background:rgba(10,15,26,0.98);flex-direction:column;align-items:flex-start;
+    padding:1rem 2rem;border-bottom:1px solid rgba(255,255,255,.08);gap:.2rem;
+    backdrop-filter:blur(12px);
   }
   .nav-links.open{display:flex}
   .nav-links a{font-size:.95rem;padding:.55rem .4rem;width:100%}
@@ -170,17 +182,25 @@ body{font-family:"Inter",system-ui,sans-serif;font-size:1rem;line-height:1.75;co
   animation:hero-breathe 12s ease-in-out infinite;
   color:#fff;
 }
-@keyframes hero-breathe{
-  0%,100%{background-position:0% 50%}
-  50%{background-position:100% 50%}
-}
+@keyframes hero-breathe{0%,100%{background-position:0% 50%}50%{background-position:100% 50%}}
 .hero-dots{
   position:absolute;inset:0;pointer-events:none;
-  background-image:radial-gradient(circle, rgba(255,255,255,.055) 1px, transparent 1px);
+  background-image:radial-gradient(circle, rgba(255,255,255,.045) 1px, transparent 1px);
   background-size:28px 28px;
 }
-.hero-silhouette{
-  position:absolute;right:3%;bottom:0;height:85%;opacity:.07;pointer-events:none;fill:white;
+.hero-eagle{
+  position:absolute;top:50%;left:50%;
+  transform:translate(-50%,-50%);
+  width:65%;max-width:680px;height:auto;
+  opacity:0.06;
+  filter:invert(1) brightness(2);
+  pointer-events:none;
+  animation:eagle-breathe 8s ease-in-out infinite;
+  object-fit:contain;
+}
+@keyframes eagle-breathe{
+  0%,100%{transform:translate(-50%,-50%) scale(1.0)}
+  50%{transform:translate(-50%,-50%) scale(1.03)}
 }
 .hero-inner{
   position:relative;z-index:2;
@@ -210,55 +230,54 @@ body{font-family:"Inter",system-ui,sans-serif;font-size:1rem;line-height:1.75;co
 }
 @media(max-width:600px){.hero-stats{grid-template-columns:repeat(2,1fr)}}
 .hero-stat{
-  background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.14);
+  background:rgba(255,255,255,0.05);
+  border:1px solid rgba(255,255,255,0.1);
   border-radius:12px;padding:1.2rem .8rem;text-align:center;
-  backdrop-filter:blur(4px);
+  backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
 }
+.hero-stat-icon{font-size:1.5rem;display:block;margin-bottom:.4rem;line-height:1}
 .hero-stat-val{
   font-family:"Source Serif 4",serif;font-size:2rem;font-weight:700;
-  line-height:1;display:block;margin-bottom:.3rem;
+  line-height:1;display:block;margin-bottom:.3rem;color:#fff;
 }
-.hero-stat-lbl{font-size:.72rem;opacity:.7;text-transform:uppercase;letter-spacing:.07em}
+.hero-stat-lbl{font-size:.72rem;color:#4a7fa5;text-transform:uppercase;letter-spacing:.07em}
 .hero-caret{
   animation:hero-bounce 1.8s ease-in-out infinite, fade-up 640ms var(--ease-out) 480ms both;
   font-size:1.6rem;opacity:.55;cursor:pointer;display:inline-block;
 }
 @keyframes hero-bounce{0%,100%{transform:translateY(0)}50%{transform:translateY(7px)}}
-@keyframes fade-up{
-  from{opacity:0;transform:translateY(20px)}
-  to{opacity:1;transform:translateY(0)}
-}
+@keyframes fade-up{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
 
 /* ── LAYOUT ──────────────────────────────────────────────────────────────── */
-main{overflow:hidden}
+main{overflow:hidden;background:var(--bg);padding:.5rem 0}
 .container{max-width:1100px;margin:0 auto;padding:0 2rem}
-section{padding:4rem 0;border-bottom:1px solid var(--border)}
-section:last-child{border-bottom:none}
-
-/* Section reveal animation */
-.reveal{
-  opacity:0;transform:translateY(28px);
-  transition:opacity 400ms var(--ease-out), transform 400ms var(--ease-out);
+section{
+  background:var(--bg-card);
+  border-left:3px solid var(--navy);
+  box-shadow:0 4px 24px rgba(0,0,0,0.4);
+  padding:4rem 0;margin:.75rem 0;border-bottom:none;
 }
+
+/* Section reveal */
+.reveal{opacity:0;transform:translateY(20px);transition:opacity 500ms var(--ease-out),transform 500ms var(--ease-out)}
 .reveal.visible{opacity:1;transform:translateY(0)}
 @media(prefers-reduced-motion:reduce){
   .reveal{opacity:0;transform:none;transition:opacity 400ms ease}
   .reveal.visible{opacity:1}
   .hero-logo,.hero-title,.hero-subtitle,.hero-meta,.hero-stats,.hero-caret{animation:none;opacity:1}
-  .hero{animation:none}
-  .hero-caret{animation:none}
+  .hero,.hero-eagle{animation:none}
 }
 
 /* ── SECTION HEADERS ─────────────────────────────────────────────────────── */
 .section-header{margin-bottom:2rem}
 .section-num{
   font-family:"Source Serif 4",serif;font-size:5rem;font-weight:700;
-  color:rgba(0,48,86,.08);line-height:1;display:block;margin-bottom:-.8rem;
+  color:rgba(255,255,255,0.05);line-height:1;display:block;margin-bottom:-.8rem;
   pointer-events:none;
 }
 .section-title{
   font-family:"Source Serif 4",serif;font-size:1.75rem;font-weight:700;
-  color:var(--navy-dark);line-height:1.2;margin-bottom:.75rem;
+  color:#ffffff;line-height:1.2;margin-bottom:.75rem;
 }
 .key-finding{
   display:inline-block;background:var(--navy);color:#fff;
@@ -267,114 +286,129 @@ section:last-child{border-bottom:none}
 }
 h3{
   font-family:"Source Serif 4",serif;font-size:1.15rem;font-weight:600;
-  color:var(--navy-dark);margin:2rem 0 .7rem;
+  color:#e8edf4;margin:2rem 0 .7rem;
   padding-left:.85rem;border-left:3px solid var(--navy-mid);
 }
-p{margin-bottom:.9rem;max-width:720px}
+p{margin-bottom:.9rem;max-width:720px;color:var(--text)}
 p:last-child{margin-bottom:0}
+code{background:#1a2535;border-radius:4px;padding:.1rem .4rem;font-family:"JetBrains Mono",monospace;font-size:.82rem;color:#79c0ff}
 
 /* ── STAT CARDS ──────────────────────────────────────────────────────────── */
 .stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(155px,1fr));gap:1rem;margin:1.8rem 0}
 .stat-card{
-  background:#fff;border:1px solid var(--border);border-radius:10px;
+  background:rgba(255,255,255,0.04);border:1px solid var(--border);border-radius:10px;
   padding:1.2rem 1rem;text-align:center;
   transition:transform 220ms var(--ease-out),box-shadow 220ms var(--ease-out);
 }
 @media(hover:hover) and (pointer:fine){
-  .stat-card:hover{transform:translateY(-3px);box-shadow:0 6px 20px rgba(0,48,86,.1)}
+  .stat-card:hover{transform:translateY(-3px);box-shadow:0 6px 20px rgba(0,0,0,.5)}
 }
 .stat-value{
   font-family:"Source Serif 4",serif;font-size:1.85rem;font-weight:700;
-  color:var(--navy-dark);line-height:1;margin-bottom:.28rem;display:block;
+  color:#fff;line-height:1;margin-bottom:.28rem;display:block;
 }
-.stat-label{font-size:.73rem;color:var(--text-muted);font-weight:500;text-transform:uppercase;letter-spacing:.05em}
+.stat-label{font-size:.73rem;color:#4a7fa5;font-weight:500;text-transform:uppercase;letter-spacing:.05em}
 
 /* ── CODE BLOCKS ─────────────────────────────────────────────────────────── */
-.code-block{background:var(--code-bg);border-radius:10px;overflow:hidden;margin:1.5rem 0;border:1px solid #1a3a60}
+.code-block{
+  background:var(--bg-code);border-radius:10px;overflow:hidden;margin:1.5rem 0;
+  border:1px solid #21262d;position:relative;
+}
 .code-label{
-  background:var(--navy-dark);color:#7eb8e0;font-family:"JetBrains Mono",monospace;
+  background:#161b22;color:#4a7fa5;font-family:"JetBrains Mono",monospace;
   font-size:.73rem;padding:.5rem 1.1rem;font-weight:500;letter-spacing:.05em;
-  cursor:pointer;display:flex;justify-content:space-between;align-items:center;user-select:none;
-  transition:background 160ms ease;
+  cursor:pointer;display:flex;justify-content:space-between;align-items:center;
+  user-select:none;transition:background 160ms ease;
 }
-@media(hover:hover) and (pointer:fine){.code-label:hover{background:#00264d}}
+@media(hover:hover) and (pointer:fine){.code-label:hover{background:#1c2128}}
 .code-label:active{transform:scale(0.99)}
-.code-toggle-btn{font-size:.72rem;opacity:.7;white-space:nowrap;margin-left:.8rem}
-.code-content{
-  max-height:0;overflow:hidden;
-  transition:max-height 300ms var(--ease-in-out);
+.code-toggle-btn{
+  font-size:.7rem;white-space:nowrap;margin-left:.8rem;
+  background:#1e293b;border:1px solid #4a7fa5;border-radius:20px;
+  padding:.15rem .7rem;color:#4a7fa5;
+  transition:all 160ms ease;flex-shrink:0;
 }
+.code-content{max-height:0;overflow:hidden;transition:max-height 300ms var(--ease-in-out)}
 .code-content.open{max-height:1200px}
-pre{margin:0;padding:1.1rem 1.3rem;overflow-x:auto;font-family:"JetBrains Mono",monospace;font-size:.8rem;line-height:1.65;color:#c8ddf5}
-.kw{color:#80cbc4}.fn{color:#82b1ff}.str{color:#f48fb1}.cm{color:#78909c;font-style:italic}.nb{color:#ffd54f}
+pre{margin:0;padding:1.1rem 1.3rem;overflow-x:auto;font-family:"JetBrains Mono",monospace;font-size:.8rem;line-height:1.65;color:#c9d1d9}
+.kw{color:#ff7b72}.fn{color:#79c0ff}.str{color:#a5d6ff}.cm{color:#8b949e;font-style:italic}.nb{color:#e3b341}
+.copy-btn{
+  position:absolute;top:.45rem;right:.45rem;z-index:10;
+  background:#21262d;border:1px solid #30363d;border-radius:6px;
+  color:#8b949e;font-size:.72rem;padding:.2rem .55rem;cursor:pointer;
+  font-family:"JetBrains Mono",monospace;line-height:1.5;
+  transition:all 160ms ease;
+}
+@media(hover:hover) and (pointer:fine){.copy-btn:hover{color:#e8edf4;border-color:var(--navy-mid)}}
+.copy-btn.copied{color:#56d364;border-color:#56d364}
 
 /* ── FIGURES ─────────────────────────────────────────────────────────────── */
 .figure-block{
-  margin:2rem 0;background:#fff;border:1px solid var(--border);
+  margin:2rem 0;background:var(--bg-card);border:1px solid var(--border);
   border-radius:10px;overflow:hidden;
   transition:box-shadow 220ms var(--ease-out);
 }
 @media(hover:hover) and (pointer:fine){
-  .figure-block:hover{box-shadow:0 4px 18px rgba(0,48,86,.1)}
+  .figure-block:hover{box-shadow:0 4px 20px rgba(0,0,0,.6)}
 }
 .fig-plotly{width:100%;height:460px}
 .fig-plotly-sm{width:100%;height:380px}
 .figure-caption{
   padding:.8rem 1.2rem;font-size:.85rem;color:var(--text-muted);
-  background:var(--navy-light);border-top:1px solid var(--border);font-style:italic;
+  background:#1a2535;border-top:1px solid var(--border);font-style:italic;
   opacity:0;transition:opacity 300ms var(--ease-out) 200ms;
 }
-.figure-block:has(.fig-plotly) .figure-caption,
 .figure-block.cap-visible .figure-caption{opacity:1}
-.figure-caption strong{color:var(--navy-dark);font-style:normal;font-weight:600}
+.figure-caption strong{color:#e8edf4;font-style:normal;font-weight:600}
 
 /* ── CALLOUTS ────────────────────────────────────────────────────────────── */
 .callout{
-  background:var(--navy-light);border-left:4px solid var(--navy);
+  background:#1a2535;border-left:4px solid var(--navy);
   border-radius:0 8px 8px 0;padding:1.1rem 1.4rem;margin:1.4rem 0;max-width:720px;
+  color:var(--text);
 }
-.callout-warn{background:#fff8e8;border-left-color:#c8a800}
-.callout-title{font-weight:600;color:var(--navy-dark);margin-bottom:.35rem}
+.callout-warn{background:#1f1a0f;border-left-color:#c8a800}
+.callout-title{font-weight:600;color:#e8edf4;margin-bottom:.35rem}
 
 /* ── TABLES ──────────────────────────────────────────────────────────────── */
-table{width:100%;border-collapse:collapse;font-size:.88rem;margin:1.4rem 0;background:#fff;border-radius:10px;overflow:hidden;border:1px solid var(--border)}
+table{width:100%;border-collapse:collapse;font-size:.88rem;margin:1.4rem 0;background:var(--bg-card);border-radius:10px;overflow:hidden;border:1px solid var(--border)}
 thead{background:var(--navy);color:#fff}
-th{padding:.7rem 1rem;text-align:left;font-weight:600;font-size:.83rem}
-td{padding:.6rem 1rem;border-bottom:1px solid var(--border)}
+th{padding:.7rem 1rem;text-align:left;font-weight:600;font-size:.83rem;color:#fff}
+td{padding:.6rem 1rem;border-bottom:1px solid var(--border);color:var(--text)}
 tr:last-child td{border-bottom:none}
-tr:nth-child(even){background:var(--navy-light)}
+tr:nth-child(even){background:rgba(255,255,255,.03)}
 
 /* ── VOTE LISTS ──────────────────────────────────────────────────────────── */
 .vote-list{display:grid;grid-template-columns:1fr 1fr;gap:1.5rem;margin:1.4rem 0;max-width:720px}
-.vote-side h4{font-weight:600;color:var(--navy-dark);margin-bottom:.45rem;font-size:.87rem;text-transform:uppercase;letter-spacing:.05em}
+.vote-side h4{font-weight:600;color:#e8edf4;margin-bottom:.45rem;font-size:.87rem;text-transform:uppercase;letter-spacing:.05em}
 .vote-side ul{list-style:disc;padding-left:1.2rem}
-.vote-side li{margin-bottom:.3rem;font-size:.88rem;line-height:1.4}
+.vote-side li{margin-bottom:.3rem;font-size:.88rem;line-height:1.4;color:var(--text)}
 .vote-side .vm{color:var(--text-muted);font-size:.8rem}
 @media(max-width:600px){.vote-list{grid-template-columns:1fr}}
 
 /* ── INTERACTIVE SECTION ─────────────────────────────────────────────────── */
-#interactive-wrapper{background:#fff;border:1px solid var(--border);border-radius:10px;padding:1.4rem;margin:1.8rem 0}
+#interactive-wrapper{background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:1.4rem;margin:1.8rem 0}
 .controls{display:flex;gap:1rem;align-items:center;flex-wrap:wrap;margin-bottom:1rem}
-.controls label{font-weight:600;font-size:.88rem;color:var(--navy-dark)}
+.controls label{font-weight:600;font-size:.88rem;color:#e8edf4}
 .controls select{
   padding:.42rem .85rem;border:1px solid var(--border);border-radius:6px;
-  background:var(--navy-light);color:var(--navy-dark);font-size:.88rem;font-family:inherit;
+  background:#1a2535;color:#e8edf4;font-size:.88rem;font-family:inherit;
   cursor:pointer;transition:border-color 160ms ease;
 }
-.controls select:focus{outline:2px solid var(--navy);outline-offset:2px}
+.controls select:focus{outline:2px solid var(--navy-mid);outline-offset:2px}
 #plot-container{width:100%;height:580px}
 
 /* ── PROMPT ENTRIES ──────────────────────────────────────────────────────── */
 .prompt-entry{border:1px solid var(--border);border-radius:8px;margin-bottom:1.1rem;overflow:hidden}
 .prompt-role{padding:.45rem 1rem;font-size:.75rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em}
-.prompt-role.user{background:var(--navy-dark);color:#fff}
-.prompt-role.ai{background:var(--accent);color:#fff}
-.prompt-body{padding:.85rem 1rem;font-size:.87rem;line-height:1.6;max-width:720px}
+.prompt-role.user{background:#003056;color:#fff}
+.prompt-role.ai{background:#1e3a5f;color:#7eb8e0}
+.prompt-body{padding:.85rem 1rem;font-size:.87rem;line-height:1.6;max-width:720px;color:var(--text);background:var(--bg-card)}
 
 /* ── FOOTER ──────────────────────────────────────────────────────────────── */
-footer{background:var(--navy-dark);color:rgba(255,255,255,.7);font-size:.84rem;text-align:center}
+footer{background:#00203f;color:rgba(255,255,255,.7);font-size:.84rem;text-align:center;border-top:1px solid rgba(255,255,255,.06)}
 footer .footer-inner{max-width:1100px;margin:0 auto;padding:2.2rem 2rem}
-footer a{color:#7eb8e0;text-decoration:none}
+footer a{color:#7eb8e0}
 footer p+p{margin-top:.6rem;font-size:.8rem;opacity:.8}
 
 /* ── RESPONSIVE ──────────────────────────────────────────────────────────── */
@@ -412,22 +446,7 @@ footer p+p{margin-top:.6rem;font-size:.8rem;opacity:.8}
 <!-- HERO -->
 <header class="hero" id="top">
   <div class="hero-dots" aria-hidden="true"></div>
-  <svg class="hero-silhouette" viewBox="0 0 340 220" aria-hidden="true">
-    <rect x="10" y="130" width="320" height="90"/>
-    <rect x="30" y="100" width="280" height="35"/>
-    <rect x="50" y="80" width="240" height="25"/>
-    <rect x="65" y="80" width="9" height="50"/><rect x="90" y="80" width="9" height="50"/>
-    <rect x="115" y="80" width="9" height="50"/><rect x="140" y="80" width="9" height="50"/>
-    <rect x="165" y="80" width="9" height="50"/><rect x="190" y="80" width="9" height="50"/>
-    <rect x="215" y="80" width="9" height="50"/><rect x="240" y="80" width="9" height="50"/>
-    <rect x="265" y="80" width="9" height="50"/>
-    <rect x="10" y="60" width="45" height="70"/><rect x="285" y="60" width="45" height="70"/>
-    <rect x="130" y="50" width="80" height="30"/>
-    <ellipse cx="170" cy="50" rx="45" ry="35"/>
-    <ellipse cx="170" cy="30" rx="22" ry="18"/>
-    <rect x="162" y="10" width="16" height="20"/>
-    <polygon points="170,0 158,10 182,10"/>
-  </svg>
+  <img src="bundestag.jpg" class="hero-eagle" alt="" aria-hidden="true">
   <div class="hero-inner">
     <div class="hero-logo">
       <img src="Uni-mannheim.svg.png" alt="University of Mannheim logo">
@@ -441,18 +460,22 @@ footer p+p{margin-top:.6rem;font-size:.8rem;opacity:.8}
     </div>
     <div class="hero-stats" id="hero-stats">
       <div class="hero-stat">
+        <span class="hero-stat-icon">&#128101;</span>
         <span class="hero-stat-val hero-counter" data-target="@@N_LEGISLATORS@@">@@N_LEGISLATORS@@</span>
         <span class="hero-stat-lbl">Legislators</span>
       </div>
       <div class="hero-stat">
+        <span class="hero-stat-icon">&#128499;</span>
         <span class="hero-stat-val hero-counter" data-target="@@N_VOTES@@">@@N_VOTES@@</span>
         <span class="hero-stat-lbl">Roll-Call Votes</span>
       </div>
       <div class="hero-stat">
+        <span class="hero-stat-icon">&#128202;</span>
         <span class="hero-stat-val hero-counter" data-target="@@PCT_OBSERVED@@">@@PCT_OBSERVED@@</span>
         <span class="hero-stat-lbl">Votes Observed</span>
       </div>
       <div class="hero-stat">
+        <span class="hero-stat-icon">&#9989;</span>
         <span class="hero-stat-val hero-counter" data-target="@@GRAND_MEAN_PCT@@">@@GRAND_MEAN_PCT@@</span>
         <span class="hero-stat-lbl">Yes-Vote Rate</span>
       </div>
@@ -792,8 +815,8 @@ prior_2pl <span class="kw">&lt;-</span>
     <div id="fig7-container" class="fig-plotly"></div>
     <div class="figure-caption">
       <strong>Figure 7.</strong> SVD dim-1 scores vs IRT posterior means for all
-      @@N_LEGISLATORS@@ legislators (r&nbsp;=&nbsp;@@COR_SVD_IRT@@). Hover for name and party.
-      Slight deviations occur for legislators with many missing votes.
+      @@N_LEGISLATORS@@ legislators (r&nbsp;=&nbsp;@@COR_SVD_IRT@@). Dashed line = OLS fit;
+      dotted line = y&nbsp;=&nbsp;x reference. Hover for name and party.
     </div>
   </div>
 </div>
@@ -860,8 +883,8 @@ p_afd_gt_cdu <span class="kw">&lt;-</span> <span class="fn">mean</span>(afd_draw
     <div id="fig8-container" class="fig-plotly"></div>
     <div class="figure-caption">
       <strong>Figure 8.</strong> Posterior distributions of party mean ideal points from 500
-      MCMC draws. Each violin shows the full uncertainty; the box inside marks the IQR; the
-      centre line is the median. Parties ordered by posterior mean (left = most coalition-like).
+      MCMC draws. Violin shows full uncertainty; dashed lines mark the 95% credible interval
+      per party. Hover for median and CI values.
     </div>
   </div>
 
@@ -981,8 +1004,8 @@ p_afd_gt_cdu <span class="kw">&lt;-</span> <span class="fn">mean</span>(afd_draw
     <div id="fig9-container" class="fig-plotly"></div>
     <div class="figure-caption">
       <strong>Figure 9.</strong> Normal prior vs horseshoe-prior ideal points (interactive).
-      Dashed line = identity (perfect agreement). Points off-diagonal shifted under heavier
-      regularisation. Hover for legislator name, party, and both &theta; values.
+      Dashed line = identity y&nbsp;=&nbsp;x (perfect agreement). Points off-diagonal shifted
+      under heavier regularisation. Hover for legislator name, party, and both &theta; values.
       Correlation r&nbsp;=&nbsp;@@COR_HS_BASE@@.
     </div>
   </div>
@@ -1039,18 +1062,17 @@ p_afd_gt_cdu <span class="kw">&lt;-</span> <span class="fn">mean</span>(afd_draw
     <div class="prompt-role user">Refinement &amp; design prompts (User)</div>
     <div class="prompt-body">
       Fix orientation bug (AfD must be positive/right). Add horseshoe prior extension.
-      Convert all figures to Plotly. Apply Emil Kowalski animation principles: custom easing
-      curves, fade-up section reveals, smooth code-block expand, scroll progress bar,
-      staggered stat counters.
+      Convert all figures to Plotly. Apply Emil Kowalski animation principles and full
+      dark theme with Bundesadler hero watermark.
     </div>
   </div>
   <div class="prompt-entry">
     <div class="prompt-role ai">Response (Claude)</div>
     <div class="prompt-body">
-      Fixed orientation using AfD vs SPD hard political knowledge (replacing fragile pattern
-      match). All 9 figures converted to Plotly. Applied Emil Kowalski principles throughout:
-      cubic-bezier(0.23, 1, 0.32, 1) easing, 350ms fade-up reveals, max-height code expansion,
-      scroll progress bar, IntersectionObserver counters, hamburger menu on mobile.
+      Fixed orientation using AfD vs SPD hard political knowledge. All 9 figures converted
+      to dark-mode Plotly with lazy loading. Applied dark theme (#0a0f1a page, #111827 cards),
+      Bundesadler hero watermark, glassmorphism stat counters, GitHub-dark code blocks with
+      copy button, directional axis annotations on strip plots, 95% CI lines on posteriors.
     </div>
   </div>
   <h3>Quality checks</h3>
@@ -1060,7 +1082,7 @@ p_afd_gt_cdu <span class="kw">&lt;-</span> <span class="fn">mean</span>(afd_draw
     <li>brms formula matches B&uuml;rkner (2021) Table 1 exactly</li>
     <li>Orientation: AfD > SPD in both SVD and IRT (hard political knowledge check)</li>
     <li>Posterior probabilities computed from draw-level party means, not point estimates</li>
-    <li>All 9 figures rendered as interactive Plotly charts</li>
+    <li>All 9 figures rendered as interactive dark-mode Plotly charts</li>
   </ul>
   </div>
 </div>
@@ -1104,23 +1126,23 @@ p_afd_gt_cdu <span class="kw">&lt;-</span> <span class="fn">mean</span>(afd_draw
 /* =========================================================================
    DATA
    ========================================================================= */
-const RAW_DATA    = @@PLOTLY_DATA@@;
-const DRAWS_DATA  = @@PARTY_DRAWS_DATA@@;
-const SCREE_DATA  = @@SCREE_DATA@@;
-const LOADS_DATA  = @@VOTE_LOADINGS_DATA@@;
+const RAW_DATA   = @@PLOTLY_DATA@@;
+const DRAWS_DATA = @@PARTY_DRAWS_DATA@@;
+const SCREE_DATA = @@SCREE_DATA@@;
+const LOADS_DATA = @@VOTE_LOADINGS_DATA@@;
 
 /* =========================================================================
    CONSTANTS
    ========================================================================= */
 const PARTY_COLORS = {
   "SPD":                   "#E3000F",
-  "CDU/CSU":               "#333333",
+  "CDU/CSU":               "#cccccc",
   "FDP":                   "#CCBB00",
   "BÜNDNIS 90/DIE GRÜNEN": "#64A12D",
   "AfD":                   "#009EE0",
   "Die Linke":             "#BE3075",
-  "BSW":                   "#6A0F49",
-  "fraktionslos":          "#888888"
+  "BSW":                   "#9b3f8e",
+  "fraktionslos":          "#9ca3af"
 };
 const PARTY_SHORT = {
   "BÜNDNIS 90/DIE GRÜNEN": "Grünen",
@@ -1128,20 +1150,37 @@ const PARTY_SHORT = {
 };
 function sp(p){ return PARTY_SHORT[p] || p; }
 
-const PC = {responsive:true, displayModeBar:true,
+const PC = {
+  responsive:true, displayModeBar:true, displaylogo:false,
   modeBarButtonsToRemove:["lasso2d","select2d"],
-  toImageButtonOptions:{format:"png",filename:"bundestag"}};
+  toImageButtonOptions:{format:"png",filename:"bundestag"}
+};
 
+const DARK_BG = "#111827";
 const LAY_BASE = {
-  plot_bgcolor:"#fafcfd", paper_bgcolor:"#ffffff",
-  hoverlabel:{bgcolor:"#fff",bordercolor:"#bbb",font:{size:12,family:"Inter,sans-serif"}},
-  font:{family:"Inter,sans-serif",color:"#1a2332"},
-  margin:{l:90,r:24,t:52,b:48}
+  plot_bgcolor: DARK_BG, paper_bgcolor: DARK_BG,
+  hoverlabel:{bgcolor:"#1e293b",bordercolor:"#4a7fa5",font:{size:12,family:"Inter,sans-serif",color:"#e8edf4"}},
+  font:{family:"Inter,sans-serif",color:"#e8edf4"},
+  margin:{l:90,r:24,t:52,b:56}
+};
+const AX = {
+  color:"#e8edf4", gridcolor:"#1e293b", zerolinecolor:"#334155",
+  tickfont:{color:"#e8edf4"}, titlefont:{color:"#8b9ab0"}
 };
 
 /* =========================================================================
-   HELPERS — party order from data
+   HELPERS
    ========================================================================= */
+function lazyPlot(id, fn) {
+  if (!("IntersectionObserver" in window)) { fn(); return; }
+  const el = document.getElementById(id);
+  if (!el) { fn(); return; }
+  const obs = new IntersectionObserver(function(entries) {
+    if (entries[0].isIntersecting) { fn(); obs.disconnect(); }
+  }, {rootMargin:"200px 0px", threshold:0});
+  obs.observe(el);
+}
+
 function partyOrderByMean(field) {
   const m = {};
   RAW_DATA.forEach(d => {
@@ -1160,7 +1199,7 @@ function stripTraces(field, labelFn) {
     return {
       type:"box", orientation:"h", name:sp(party),
       x:rows.map(d=>d[field]), y:rows.map(_=>sp(party)),
-      marker:{color:PARTY_COLORS[party],size:4,opacity:0.5},
+      marker:{color:PARTY_COLORS[party],size:4,opacity:0.55},
       line:{color:PARTY_COLORS[party]},
       fillcolor:PARTY_COLORS[party]+"22",
       boxpoints:"all", jitter:0.42, pointpos:0,
@@ -1182,20 +1221,28 @@ function scatterTraces(xf,yf,labelFn,hl) {
       text:rows.map(labelFn),
       hovertemplate:"%{text}<extra></extra>",
       marker:{color:PARTY_COLORS[party]||"#888",size:7,
-        opacity:(hl==="all")?0.7:(isHL?0.92:0.06),
-        line:{width:0.6,color:"rgba(255,255,255,0.5)"}}
+        opacity:(hl==="all")?0.72:(isHL?0.92:0.06),
+        line:{width:0.5,color:"rgba(0,0,0,0.3)"}}
     };
   });
 }
 
+/* Direction annotations for strip plots */
+const DIR_ANNO = [
+  {xref:"paper",yref:"paper",x:0.0,y:-0.12,text:"← Left",
+   showarrow:false,font:{color:"#8b9ab0",size:11},xanchor:"left"},
+  {xref:"paper",yref:"paper",x:1.0,y:-0.12,text:"Right →",
+   showarrow:false,font:{color:"#8b9ab0",size:11},xanchor:"right"}
+];
+
 /* =========================================================================
    FIG 1 — Scree plot
    ========================================================================= */
-(function(){
+lazyPlot("fig1-container", function() {
   const bars = {
     type:"bar", name:"Variance explained",
     x:SCREE_DATA.map(d=>d.dim), y:SCREE_DATA.map(d=>d.var_pct),
-    marker:{color:"#003056",opacity:0.8},
+    marker:{color:"#003056",opacity:0.9},
     hovertemplate:"Dim %{x}: %{y:.2f}%<extra></extra>"
   };
   const line = {
@@ -1207,35 +1254,38 @@ function scatterTraces(xf,yf,labelFn,hl) {
     yaxis:"y2"
   };
   Plotly.newPlot("fig1-container",[bars,line],Object.assign({},LAY_BASE,{
-    title:{text:"SVD Variance Explained by Dimension",font:{size:13,color:"#003056"},x:0.02,xanchor:"left"},
-    xaxis:{title:{text:"Dimension"},dtick:1,range:[0.5,SCREE_DATA.length+0.5]},
-    yaxis:{title:{text:"Variance explained (%)"},rangemode:"tozero"},
-    yaxis2:{title:{text:"Cumulative (%)"},overlaying:"y",side:"right",range:[0,100]},
-    legend:{x:0.72,y:0.5},
+    title:{text:"SVD Variance Explained by Dimension",font:{size:13,color:"#e8edf4"},x:0.02,xanchor:"left"},
+    xaxis:Object.assign({},AX,{title:{text:"Dimension"},dtick:1,range:[0.5,SCREE_DATA.length+0.5]}),
+    yaxis:Object.assign({},AX,{title:{text:"Variance explained (%)"},rangemode:"tozero"}),
+    yaxis2:Object.assign({},AX,{title:{text:"Cumulative (%)"},overlaying:"y",side:"right",range:[0,100]}),
+    legend:{x:0.72,y:0.5,font:{color:"#e8edf4"},bgcolor:"rgba(17,24,39,0.8)"},
     margin:Object.assign({},LAY_BASE.margin,{l:60,r:60})
   }),PC);
-})();
+});
 
 /* =========================================================================
    FIG 2 — SVD dim1 strip by party
    ========================================================================= */
-Plotly.newPlot("fig2-container",
-  stripTraces("svd_dim1", d=>"<b>"+d.legislator+"</b><br>"+sp(d.party)+"<br>SVD dim1: "+(d.svd_dim1||0).toFixed(3)),
-  Object.assign({},LAY_BASE,{
-    title:{text:"SVD Dimension-1 Ideal Points by Party",font:{size:13,color:"#003056"},x:0.02,xanchor:"left"},
-    xaxis:{title:{text:"SVD Score (Dimension 1)"},zeroline:true,zerolinecolor:"#ccc",gridcolor:"#eee"},
-    yaxis:{automargin:true,gridcolor:"#eee"}
-  }),PC);
+lazyPlot("fig2-container", function() {
+  Plotly.newPlot("fig2-container",
+    stripTraces("svd_dim1", d=>"<b>"+d.legislator+"</b><br>"+sp(d.party)+"<br>SVD dim1: "+(d.svd_dim1||0).toFixed(3)),
+    Object.assign({},LAY_BASE,{
+      title:{text:"SVD Dimension-1 Ideal Points by Party",font:{size:13,color:"#e8edf4"},x:0.02,xanchor:"left"},
+      xaxis:Object.assign({},AX,{title:{text:"SVD Score (Dimension 1)"},zeroline:true}),
+      yaxis:Object.assign({},AX,{automargin:true}),
+      annotations:DIR_ANNO
+    }),PC);
+});
 
 /* =========================================================================
    FIG 3 — Vote loadings horizontal bar
    ========================================================================= */
-(function(){
+lazyPlot("fig3-container", function() {
   const top = LOADS_DATA.slice(-20).reverse();
   const bot = LOADS_DATA.slice(0,20);
   const data = [...bot,...top.reverse()];
   const labels = data.map(d=>{
-    const s = (d.poll_label||"").substring(0,55);
+    const s = (d.poll_label||"").substring(0,50);
     return s.length<(d.poll_label||"").length ? s+"…" : s;
   });
   Plotly.newPlot("fig3-container",[{
@@ -1248,86 +1298,92 @@ Plotly.newPlot("fig2-container",
       return "<b>"+lbl+"</b><br>"+com+"<br>"+acc+"<br>Loading: "+((d.svd_loading1||0).toFixed(4));
     }),
     hovertemplate:"%{text}<extra></extra>",
-    marker:{
-      color:data.map(d=>d.svd_loading1>0?"#009EE0":"#E3000F"),
-      opacity:0.8
-    }
+    marker:{color:data.map(d=>d.svd_loading1>0?"#009EE0":"#E3000F"),opacity:0.85}
   }],Object.assign({},LAY_BASE,{
-    title:{text:"SVD Dimension-1 Vote Loadings (top 20 each direction)",font:{size:13,color:"#003056"},x:0.02,xanchor:"left"},
-    xaxis:{title:{text:"SVD Dimension-1 Loading"},zeroline:true,zerolinecolor:"#333",zerolinewidth:1.5,gridcolor:"#eee"},
-    yaxis:{automargin:true,tickfont:{size:10}},
+    title:{text:"SVD Dimension-1 Vote Loadings (top 20 each direction)",font:{size:13,color:"#e8edf4"},x:0.02,xanchor:"left"},
+    xaxis:Object.assign({},AX,{title:{text:"SVD Dimension-1 Loading"},zeroline:true,zerolinewidth:1.5}),
+    yaxis:Object.assign({},AX,{automargin:true,tickfont:{color:"#e8edf4",size:10}}),
     margin:Object.assign({},LAY_BASE.margin,{l:320})
   }),PC);
-})();
+});
 
 /* =========================================================================
    FIG 4 — 2D SVD scatter
    ========================================================================= */
-(function(){
+lazyPlot("fig4-container", function() {
   const traces = scatterTraces("svd_dim1","svd_dim2",
     d=>"<b>"+d.legislator+"</b><br>"+sp(d.party)+"<br>dim1: "+((d.svd_dim1||0).toFixed(3))+" dim2: "+((d.svd_dim2||0).toFixed(3)),
     "all");
   Plotly.newPlot("fig4-container",traces,Object.assign({},LAY_BASE,{
-    title:{text:"Two-Dimensional SVD Scaling",font:{size:13,color:"#003056"},x:0.02,xanchor:"left"},
-    xaxis:{title:{text:"SVD Dimension 1"},zeroline:true,zerolinecolor:"#ccc",gridcolor:"#eee"},
-    yaxis:{title:{text:"SVD Dimension 2"},zeroline:true,zerolinecolor:"#ccc",gridcolor:"#eee"},
-    legend:{title:{text:"Party"}},
+    title:{text:"Two-Dimensional SVD Scaling",font:{size:13,color:"#e8edf4"},x:0.02,xanchor:"left"},
+    xaxis:Object.assign({},AX,{title:{text:"SVD Dimension 1"},zeroline:true}),
+    yaxis:Object.assign({},AX,{title:{text:"SVD Dimension 2"},zeroline:true}),
+    legend:{title:{text:"Party"},font:{color:"#e8edf4"},bgcolor:"rgba(17,24,39,0.8)",bordercolor:"#1e293b",borderwidth:1},
     margin:Object.assign({},LAY_BASE.margin,{l:60})
   }),PC);
-})();
+});
 
 /* =========================================================================
    FIG 5 — DC-SVD dim1 strip
    ========================================================================= */
-Plotly.newPlot("fig5-container",
-  stripTraces("svd2_dim1", d=>"<b>"+d.legislator+"</b><br>"+sp(d.party)+"<br>DC-SVD dim1: "+((d.svd2_dim1||0).toFixed(3))),
-  Object.assign({},LAY_BASE,{
-    title:{text:"DC-SVD Dimension-1 Ideal Points by Party",font:{size:13,color:"#003056"},x:0.02,xanchor:"left"},
-    xaxis:{title:{text:"DC-SVD Score (Dimension 1)"},zeroline:true,zerolinecolor:"#ccc",gridcolor:"#eee"},
-    yaxis:{automargin:true,gridcolor:"#eee"}
-  }),PC);
+lazyPlot("fig5-container", function() {
+  Plotly.newPlot("fig5-container",
+    stripTraces("svd2_dim1", d=>"<b>"+d.legislator+"</b><br>"+sp(d.party)+"<br>DC-SVD dim1: "+((d.svd2_dim1||0).toFixed(3))),
+    Object.assign({},LAY_BASE,{
+      title:{text:"DC-SVD Dimension-1 Ideal Points by Party",font:{size:13,color:"#e8edf4"},x:0.02,xanchor:"left"},
+      xaxis:Object.assign({},AX,{title:{text:"DC-SVD Score (Dimension 1)"},zeroline:true}),
+      yaxis:Object.assign({},AX,{automargin:true}),
+      annotations:DIR_ANNO
+    }),PC);
+});
 
 /* =========================================================================
    FIG 6 — IRT theta strip
    ========================================================================= */
-Plotly.newPlot("fig6-container",
-  stripTraces("theta", d=>"<b>"+d.legislator+"</b><br>"+sp(d.party)+"<br>&theta;: "+((d.theta||0).toFixed(2))+" ["+((d.theta_lo||0).toFixed(2))+", "+((d.theta_hi||0).toFixed(2))+"]"),
-  Object.assign({},LAY_BASE,{
-    title:{text:"IRT Posterior Mean Ideal Points (θ) by Party",font:{size:13,color:"#003056"},x:0.02,xanchor:"left"},
-    xaxis:{title:{text:"Posterior Mean Ideal Point (θ)"},zeroline:true,zerolinecolor:"#ccc",gridcolor:"#eee"},
-    yaxis:{automargin:true,gridcolor:"#eee"}
-  }),PC);
+lazyPlot("fig6-container", function() {
+  Plotly.newPlot("fig6-container",
+    stripTraces("theta", d=>"<b>"+d.legislator+"</b><br>"+sp(d.party)+"<br>θ: "+((d.theta||0).toFixed(2))+" ["+((d.theta_lo||0).toFixed(2))+", "+((d.theta_hi||0).toFixed(2))+"]"),
+    Object.assign({},LAY_BASE,{
+      title:{text:"IRT Posterior Mean Ideal Points (θ) by Party",font:{size:13,color:"#e8edf4"},x:0.02,xanchor:"left"},
+      xaxis:Object.assign({},AX,{title:{text:"Posterior Mean Ideal Point (θ)"},zeroline:true}),
+      yaxis:Object.assign({},AX,{automargin:true}),
+      annotations:DIR_ANNO
+    }),PC);
+});
 
 /* =========================================================================
-   FIG 7 — SVD vs IRT scatter
+   FIG 7 — SVD vs IRT scatter (OLS line + y=x reference)
    ========================================================================= */
-(function(){
+lazyPlot("fig7-container", function() {
   const valid = RAW_DATA.filter(d=>d.svd_dim1!=null&&d.theta!=null);
   const traces = scatterTraces("svd_dim1","theta",
-    d=>"<b>"+d.legislator+"</b><br>"+sp(d.party)+"<br>SVD: "+((d.svd_dim1||0).toFixed(3))+" &theta;: "+((d.theta||0).toFixed(2)),
+    d=>"<b>"+d.legislator+"</b><br>"+sp(d.party)+"<br>SVD: "+((d.svd_dim1||0).toFixed(3))+" θ: "+((d.theta||0).toFixed(2)),
     "all");
   const xs = valid.map(d=>d.svd_dim1), ys = valid.map(d=>d.theta);
   const n=xs.length, sx=xs.reduce((a,b)=>a+b,0), sy=ys.reduce((a,b)=>a+b,0);
   const sxy=xs.reduce((a,x,i)=>a+x*ys[i],0), sx2=xs.reduce((a,x)=>a+x*x,0);
   const slope=(n*sxy-sx*sy)/(n*sx2-sx*sx), int=(sy-slope*sx)/n;
   const xmin=Math.min(...xs), xmax=Math.max(...xs);
-  const regLine={type:"scatter",mode:"lines",name:"OLS fit",
+  const allVals=[...xs,...ys], mn=Math.min(...allVals), mx=Math.max(...allVals);
+  const olsLine={type:"scatter",mode:"lines",name:"OLS fit",
     x:[xmin,xmax],y:[slope*xmin+int,slope*xmax+int],
-    line:{color:"#003056",width:1.8,dash:"dot"},showlegend:false,
-    hoverinfo:"skip"};
-  Plotly.newPlot("fig7-container",[...traces,regLine],Object.assign({},LAY_BASE,{
-    title:{text:"SVD Dimension-1 vs IRT Ideal Points",font:{size:13,color:"#003056"},x:0.02,xanchor:"left"},
-    xaxis:{title:{text:"SVD Score (Dimension 1)"},zeroline:true,zerolinecolor:"#ccc",gridcolor:"#eee"},
-    yaxis:{title:{text:"Posterior Mean θ"},zeroline:true,zerolinecolor:"#ccc",gridcolor:"#eee"},
-    legend:{title:{text:"Party"}},
+    line:{color:"#4a7fa5",width:1.8,dash:"dot"},showlegend:false,hoverinfo:"skip"};
+  const identLine={type:"scatter",mode:"lines",name:"y = x",
+    x:[mn,mx],y:[mn,mx],
+    line:{color:"#334155",width:1.4,dash:"dashdot"},showlegend:false,hoverinfo:"skip"};
+  Plotly.newPlot("fig7-container",[...traces,identLine,olsLine],Object.assign({},LAY_BASE,{
+    title:{text:"SVD Dimension-1 vs IRT Ideal Points",font:{size:13,color:"#e8edf4"},x:0.02,xanchor:"left"},
+    xaxis:Object.assign({},AX,{title:{text:"SVD Score (Dimension 1)"},zeroline:true}),
+    yaxis:Object.assign({},AX,{title:{text:"Posterior Mean θ"},zeroline:true}),
+    legend:{title:{text:"Party"},font:{color:"#e8edf4"},bgcolor:"rgba(17,24,39,0.8)",bordercolor:"#1e293b",borderwidth:1},
     margin:Object.assign({},LAY_BASE.margin,{l:60})
   }),PC);
-})();
+});
 
 /* =========================================================================
-   FIG 8 — Posterior party distributions violin
+   FIG 8 — Posterior party distributions violin + 95% CI lines
    ========================================================================= */
-(function(){
+lazyPlot("fig8-container", function() {
   const byParty = {};
   DRAWS_DATA.forEach(d=>{ if(!byParty[d.party]) byParty[d.party]=[]; byParty[d.party].push(d.theta); });
   const order = Object.keys(byParty).sort((a,b)=>{
@@ -1335,44 +1391,60 @@ Plotly.newPlot("fig6-container",
     const mb=byParty[b].reduce((s,v)=>s+v,0)/byParty[b].length;
     return ma-mb;
   });
-  const traces = order.map(party=>({
+  const violins = order.map(party=>({
     type:"violin", orientation:"h", name:sp(party),
     x:byParty[party], y:byParty[party].map(_=>sp(party)),
     box:{visible:true}, meanline:{visible:true}, points:false,
-    fillcolor:(PARTY_COLORS[party]||"#888")+"44",
-    line:{color:PARTY_COLORS[party]||"#888"},
+    fillcolor:(PARTY_COLORS[party]||"#888")+"33",
+    line:{color:PARTY_COLORS[party]||"#888",width:1.5},
     hovertemplate:sp(party)+"<br>median: %{median:.2f}<extra></extra>",
     showlegend:false
   }));
-  Plotly.newPlot("fig8-container",traces,Object.assign({},LAY_BASE,{
-    title:{text:"Posterior Distributions of Party Mean Ideal Points (500 MCMC draws)",font:{size:13,color:"#003056"},x:0.02,xanchor:"left"},
-    xaxis:{title:{text:"Party Mean Ideal Point (θ)"},zeroline:true,zerolinecolor:"#ccc",gridcolor:"#eee"},
-    yaxis:{automargin:true},
+  /* 95% CI as line traces */
+  const ciTraces = order.map(party=>{
+    const vals = byParty[party].slice().sort((a,b)=>a-b);
+    const n = vals.length;
+    const lo = vals[Math.max(0,Math.floor(0.025*n))];
+    const hi = vals[Math.min(n-1,Math.ceil(0.975*n)-1)];
+    const col = PARTY_COLORS[party]||"#888";
+    return {
+      type:"scatter", mode:"lines+markers", name:"",
+      x:[lo,hi], y:[sp(party),sp(party)],
+      line:{color:col,width:3},
+      marker:{symbol:"line-ns-open",size:9,color:col,line:{width:2.5,color:col}},
+      showlegend:false,
+      hovertemplate:"95% CI: %{x:.2f}<extra>"+sp(party)+"</extra>"
+    };
+  });
+  Plotly.newPlot("fig8-container",[...violins,...ciTraces],Object.assign({},LAY_BASE,{
+    title:{text:"Posterior Distributions of Party Mean Ideal Points (500 MCMC draws)",font:{size:13,color:"#e8edf4"},x:0.02,xanchor:"left"},
+    xaxis:Object.assign({},AX,{title:{text:"Party Mean Ideal Point (θ)"},zeroline:true}),
+    yaxis:Object.assign({},AX,{automargin:true}),
     violingap:0.05, violingroupgap:0,
     margin:Object.assign({},LAY_BASE.margin,{l:80})
   }),PC);
-})();
+});
 
 /* =========================================================================
    FIG 9 — Horseshoe vs normal prior scatter
    ========================================================================= */
-(function(){
+lazyPlot("fig9-container", function() {
   const valid = RAW_DATA.filter(d=>d.theta!=null&&d.theta_hs!=null);
   const allX = valid.map(d=>d.theta), allY = valid.map(d=>d.theta_hs);
   const mn=Math.min(...allX,...allY), mx=Math.max(...allX,...allY);
   const diag={type:"scatter",mode:"lines",x:[mn,mx],y:[mn,mx],
-    line:{color:"#aaa",width:1.2,dash:"dash"},showlegend:false,hoverinfo:"skip"};
+    line:{color:"#334155",width:1.5,dash:"dash"},showlegend:false,hoverinfo:"skip"};
   const traces = scatterTraces("theta","theta_hs",
     d=>"<b>"+d.legislator+"</b><br>"+sp(d.party)+"<br>Normal: "+((d.theta||0).toFixed(2))+" HS: "+((d.theta_hs||0).toFixed(2)),
     "all");
   Plotly.newPlot("fig9-container",[diag,...traces],Object.assign({},LAY_BASE,{
-    title:{text:"Horseshoe vs Normal-Prior Ideal Points",font:{size:13,color:"#003056"},x:0.02,xanchor:"left"},
-    xaxis:{title:{text:"Normal-Prior θ"},zeroline:true,zerolinecolor:"#ccc",gridcolor:"#eee"},
-    yaxis:{title:{text:"Horseshoe-Prior θ"},zeroline:true,zerolinecolor:"#ccc",gridcolor:"#eee"},
-    legend:{title:{text:"Party"}},
+    title:{text:"Horseshoe vs Normal-Prior Ideal Points",font:{size:13,color:"#e8edf4"},x:0.02,xanchor:"left"},
+    xaxis:Object.assign({},AX,{title:{text:"Normal-Prior θ"},zeroline:true}),
+    yaxis:Object.assign({},AX,{title:{text:"Horseshoe-Prior θ"},zeroline:true}),
+    legend:{title:{text:"Party"},font:{color:"#e8edf4"},bgcolor:"rgba(17,24,39,0.8)",bordercolor:"#1e293b",borderwidth:1},
     margin:Object.assign({},LAY_BASE.margin,{l:60})
   }),PC);
-})();
+});
 
 /* =========================================================================
    SECTION 05 — Interactive explorer
@@ -1389,21 +1461,28 @@ function buildTraces(hl){
       hovertemplate:"%{text}<extra></extra>",
       marker:{color:PARTY_COLORS[party]||"#888",size:8,
         opacity:(hl==="all")?0.72:(isHL?0.92:0.06),
-        line:{width:0.7,color:"rgba(255,255,255,0.5)"}}
+        line:{width:0.5,color:"rgba(0,0,0,0.3)"}}
     };
   });
 }
 const layout5=Object.assign({},LAY_BASE,{
-  title:{text:"Ideal Point Estimates — 20th Bundestag (2021–2025)",font:{size:13,color:"#003056"},x:0.02,xanchor:"left"},
-  xaxis:{title:{text:"IRT Ideal Point (θ) — left to right"},zeroline:true,zerolinecolor:"#ccc",gridcolor:"#eee"},
-  yaxis:{title:{text:"SVD Dimension 2"},zeroline:true,zerolinecolor:"#ccc",gridcolor:"#eee"},
-  legend:{title:{text:"Party"},bgcolor:"rgba(255,255,255,.9)",bordercolor:"#ddd",borderwidth:1},
+  title:{text:"Ideal Point Estimates — 20th Bundestag (2021–2025)",font:{size:13,color:"#e8edf4"},x:0.02,xanchor:"left"},
+  xaxis:Object.assign({},AX,{title:{text:"IRT Ideal Point (θ) — left to right"},zeroline:true}),
+  yaxis:Object.assign({},AX,{title:{text:"SVD Dimension 2"},zeroline:true}),
+  legend:{title:{text:"Party"},font:{color:"#e8edf4"},bgcolor:"rgba(17,24,39,0.9)",bordercolor:"#1e293b",borderwidth:1},
   hovermode:"closest",
   height:560,
   margin:Object.assign({},LAY_BASE.margin,{l:60})
 });
-Plotly.newPlot("plot-container",buildTraces("all"),layout5,PC);
-function highlightParty(p){ Plotly.react("plot-container",buildTraces(p),layout5,PC); }
+let plot5ready = false;
+lazyPlot("plot-container", function() {
+  plot5ready = true;
+  Plotly.newPlot("plot-container",buildTraces("all"),layout5,PC);
+});
+function highlightParty(p){
+  if(!plot5ready) return;
+  Plotly.react("plot-container",buildTraces(p),layout5,PC);
+}
 
 /* =========================================================================
    SCROLL PROGRESS BAR
@@ -1454,10 +1533,10 @@ function highlightParty(p){ Plotly.react("plot-container",buildTraces(p),layout5
 })();
 
 /* =========================================================================
-   SECTION REVEAL (IntersectionObserver)
+   SECTION REVEAL
    ========================================================================= */
 (function(){
-  if(!("IntersectionObserver" in window)) {
+  if(!("IntersectionObserver" in window)){
     document.querySelectorAll(".reveal").forEach(el=>el.classList.add("visible"));
     return;
   }
@@ -1470,7 +1549,7 @@ function highlightParty(p){ Plotly.react("plot-container",buildTraces(p),layout5
 })();
 
 /* =========================================================================
-   ANIMATED STAT COUNTERS — spring-easing
+   ANIMATED STAT COUNTERS
    ========================================================================= */
 function animateCounter(el){
   const raw=el.dataset.target||el.textContent;
@@ -1489,15 +1568,11 @@ function animateCounter(el){
   }
   requestAnimationFrame(frame);
 }
-
-/* Hero counters — fire on page load */
 window.addEventListener("load",function(){
   setTimeout(function(){
     document.querySelectorAll(".hero-counter").forEach(animateCounter);
   },400);
 });
-
-/* Section stat counters — fire when scrolled into view */
 (function(){
   const obs=new IntersectionObserver(function(entries){
     entries.forEach(function(e){
@@ -1524,11 +1599,29 @@ document.querySelectorAll(".code-block").forEach(function(block){
   });
 });
 
-/* Make figure captions visible after a short delay (fallback) */
-setTimeout(function(){
-  document.querySelectorAll(".figure-block").forEach(function(b){
-    b.classList.add("cap-visible");
+/* =========================================================================
+   COPY TO CLIPBOARD
+   ========================================================================= */
+document.querySelectorAll(".code-block").forEach(function(block){
+  const pre=block.querySelector("pre");
+  if(!pre) return;
+  const btn=document.createElement("button");
+  btn.className="copy-btn";
+  btn.textContent="Copy";
+  btn.setAttribute("aria-label","Copy code to clipboard");
+  btn.addEventListener("click",function(){
+    navigator.clipboard.writeText(pre.textContent).then(function(){
+      btn.textContent="✓ Copied";
+      btn.classList.add("copied");
+      setTimeout(function(){ btn.textContent="Copy"; btn.classList.remove("copied"); },2000);
+    }).catch(function(){ btn.textContent="Error"; setTimeout(function(){ btn.textContent="Copy"; },2000); });
   });
+  block.appendChild(btn);
+});
+
+/* Ensure captions visible after a delay */
+setTimeout(function(){
+  document.querySelectorAll(".figure-block").forEach(function(b){ b.classList.add("cap-visible"); });
 },2000);
 </script>
 </body>
