@@ -358,6 +358,7 @@ footer p+p{margin-top:.6rem;font-size:.8rem;opacity:.8}
       <li><a href="#claim">Claim</a></li>
       <li><a href="#interactive">Explorer</a></li>
       <li><a href="#horseshoe">Horseshoe</a></li>
+      <li><a href="#conclusion">Conclusion</a></li>
       <li><a href="#prompts">AI Workflow</a></li>
       <li><a href="#refs">Refs</a></li>
     </ul>
@@ -423,7 +424,7 @@ footer p+p{margin-top:.6rem;font-size:.8rem;opacity:.8}
   </p>
   <p>
     The <strong>Singular Value Decomposition (SVD)</strong> is the geometric workhorse. Given a
-    legislator &times; vote matrix X, SVD factorises it as X = UDV&#x1D40;, where U gives each
+    legislator &times; vote matrix \(\mathbf{X}\), SVD factorises it as \(\mathbf{X} = \mathbf{U}\mathbf{D}\mathbf{V}^\top\), where \(\mathbf{U}\) gives each
     legislator a score (ideal point) and V gives each vote a loading (discriminating power). The
     first column of U (scaled by D[1,1]) provides a one-dimensional ideal-point summary. Because
     the raw vote matrix has missing entries, we handle missingness either by double-mean imputation
@@ -499,8 +500,7 @@ footer p+p{margin-top:.6rem;font-size:.8rem;opacity:.8}
     mean minus the grand mean:
   </p>
   <div class="callout">
-    <em>X<sub>ij</sub><sup>imp</sup> = X&#773;<sub>i&middot;</sub> + X&#773;<sub>&middot;j</sub> &minus; X&#773;<sub>&middot;&middot;</sub></em>
-    &nbsp;(only where X<sub>ij</sub> is missing)
+    \[X_{ij}^{\mathrm{imp}} = \bar{X}_{i\cdot} + \bar{X}_{\cdot j} - \bar{X}_{\cdot\cdot} \quad \text{(only where } X_{ij} \text{ is missing)}\]
   </div>
 
   <div class="code-block">
@@ -552,10 +552,19 @@ na_idx    <span class="kw">&lt;-</span> <span class="fn">which</span>(<span clas
     CDU/CSU &nbsp;&lt;&nbsp; Linke &nbsp;&lt;&nbsp; AfD
   </div>
   <p>
-    Note: Die Linke sits with the right-wing opposition parties rather than with the Ampel
-    coalition. This is because the first dimension captures <strong>coalition membership</strong>
-    more than traditional left-right ideology &mdash; Die Linke voted against the Ampel
-    government on nearly every bill.
+    One apparent anomaly deserves attention: Die Linke, a far-left party ideologically,
+    appears alongside CDU/CSU and AfD in vote-space &mdash; not with the Ampel coalition
+    parties. This is not a coding error. Die Linke was in opposition throughout the 20th
+    Bundestag and consistently voted against Ampel legislation, just as CDU/CSU and AfD did,
+    though for entirely different ideological reasons. The first SVD dimension therefore
+    conflates <em>ideological position</em> with <em>coalition membership</em>. The
+    double-centered SVD (Section 02) partially addresses this by removing additive voting
+    tendencies.
+  </p>
+  <p>
+    BSW (Bündnis Sahra Wagenknecht) entered the Bundestag in January 2024 after splitting
+    from Die Linke and has fewer roll-call votes than other parties, resulting in higher
+    estimation uncertainty.
   </p>
   </div>
 
@@ -574,6 +583,12 @@ na_idx    <span class="kw">&lt;-</span> <span class="fn">which</span>(<span clas
     V[,1] gives each vote a loading indicating how strongly it differentiates legislators.
     High positive loadings: right-wing opposition voted yes. High negative loadings: coalition
     parties voted yes. The interactive chart shows all 161 votes sorted by loading.
+  </p>
+  <p>
+    Note: some positive-loading votes may appear cross-partisan or surprising. This reflects
+    the government-vs-opposition structure of dimension 1 &mdash; any motion that the
+    opposition (CDU/CSU + AfD) voted for en bloc receives a positive loading, regardless of
+    its ideological content.
   </p>
   </div>
 
@@ -602,6 +617,13 @@ na_idx    <span class="kw">&lt;-</span> <span class="fn">which</span>(<span clas
       limited systematic structure and is treated as largely noise.
     </div>
   </div>
+  <div class="reveal">
+  <p class="section-bridge" style="color:var(--text-muted);font-style:italic;border-top:1px solid var(--border);padding-top:.9rem;margin-top:1.4rem">
+    Having established that a single dimension dominates Bundestag voting, we now ask whether
+    this structure persists after removing additive row and column effects &mdash; legislators&rsquo;
+    overall yes-vote tendencies and bills&rsquo; overall passage rates.
+  </p>
+  </div>
 </div>
 </section>
 
@@ -621,7 +643,7 @@ na_idx    <span class="kw">&lt;-</span> <span class="fn">which</span>(<span clas
     more or less for a particular bill than the additive baseline predicts.
   </p>
   <div class="callout">
-    <em>X&#771;<sub>ij</sub> = X<sub>ij</sub> &minus; X&#773;<sub>i&middot;</sub> &minus; X&#773;<sub>&middot;j</sub> + X&#773;<sub>&middot;&middot;</sub></em>
+    \[\tilde{X}_{ij} = X_{ij} - \bar{X}_{i\cdot} - \bar{X}_{\cdot j} + \bar{X}_{\cdot\cdot}\]
   </div>
 
   <div class="code-block">
@@ -655,8 +677,15 @@ na_idx    <span class="kw">&lt;-</span> <span class="fn">which</span>(<span clas
     <div class="figure-caption">
       <strong>Figure 5.</strong> DC-SVD dimension-1 ideal points by party. The party ordering
       and spread can be compared to Figure 2 (uncentred SVD).
-      The correlation between the two scalings is r&nbsp;=&nbsp;0.691.
+      The correlation between the two scalings is \(r = 0.691\).
     </div>
+  </div>
+  <div class="reveal">
+  <p class="section-bridge" style="color:var(--text-muted);font-style:italic;border-top:1px solid var(--border);padding-top:.9rem;margin-top:1.4rem">
+    Both SVD approaches recover the same underlying structure, but neither provides
+    uncertainty estimates for individual legislators. In Section 03 we turn to a fully
+    Bayesian model that addresses exactly this limitation.
+  </p>
   </div>
 </div>
 </section>
@@ -732,7 +761,7 @@ prior_2pl <span class="kw">&lt;-</span>
   <h3>SVD vs IRT agreement</h3>
   <p>
     The Pearson correlation between SVD dimension-1 scores and IRT posterior means is
-    <strong>r&nbsp;=&nbsp;0.819</strong>. This validates both methods: SVD
+    \(r = 0.819\). This strong agreement validates both methods: SVD
     identifies latent structure without distributional assumptions; IRT quantifies it with full
     posterior uncertainty. The two methods extract the same underlying signal.
   </p>
@@ -741,10 +770,17 @@ prior_2pl <span class="kw">&lt;-</span>
   <div class="figure-block reveal cap-visible">
     <div id="fig7-container" class="fig-plotly"></div>
     <div class="figure-caption">
-      <strong>Figure 7.</strong> SVD dim-1 scores vs IRT posterior means for all
-      772 legislators (r&nbsp;=&nbsp;0.819). Dashed line = OLS fit;
-      dotted line = y&nbsp;=&nbsp;x reference. Hover for name and party.
+      <strong>Figure 7.</strong> The strong linear relationship between SVD dim-1 scores and
+      IRT posterior means across all 772 legislators (\(r = 0.819\)).
+      Dashed line = OLS fit; dotted line = y&nbsp;=&nbsp;x reference. Hover for name and party.
     </div>
+  </div>
+  <div class="reveal">
+  <p class="section-bridge" style="color:var(--text-muted);font-style:italic;border-top:1px solid var(--border);padding-top:.9rem;margin-top:1.4rem">
+    With ideal points and their posterior distributions in hand, we can now make explicit
+    probability statements about ideological orderings &mdash; the central advantage of the
+    Bayesian approach over SVD.
+  </p>
   </div>
 </div>
 </section>
@@ -830,7 +866,7 @@ p_afd_gt_cdu <span class="kw">&lt;-</span> <span class="fn">mean</span>(afd_draw
   <div class="callout">
     <div class="callout-title">Party ordering uncertainty</div>
     Averaging over 80&ndash;200 legislators, the standard error of the party mean shrinks by
-    roughly 1/&radic;n. The posterior probability that AfD&rsquo;s mean exceeds CDU/CSU&rsquo;s
+    roughly \(1/\sqrt{n}\). The posterior probability that AfD&rsquo;s mean exceeds CDU/CSU&rsquo;s
     is <strong>100.0%</strong> &mdash; near-certain &mdash; even though individual
     MP credible intervals overlap.
   </div>
@@ -847,6 +883,11 @@ p_afd_gt_cdu <span class="kw">&lt;-</span> <span class="fn">mean</span>(afd_draw
     German left&ndash;right spectrum. The ordering matches self-reported positions and electoral
     results &mdash; but disentangling government&ndash;opposition dynamics from genuine ideology
     would require analysing non-government-sponsored bills or cross-legislature comparisons.
+  </p>
+  <p class="section-bridge" style="color:var(--text-muted);font-style:italic;border-top:1px solid var(--border);padding-top:.9rem;margin-top:1.4rem">
+    Section 05 provides an interactive explorer where you can examine any legislator&rsquo;s
+    position directly. Section 06 investigates how sensitive these conclusions are to the
+    choice of prior.
   </p>
   </div>
 </div>
@@ -871,13 +912,13 @@ p_afd_gt_cdu <span class="kw">&lt;-</span> <span class="fn">mean</span>(afd_draw
       <label for="party-select">Highlight party:</label>
       <select id="party-select" onchange="highlightParty(this.value)">
         <option value="all">All parties (coloured)</option>
-        <option value="SPD">SPD</option>
-        <option value="CDU/CSU">CDU/CSU</option>
-        <option value="FDP">FDP</option>
-        <option value="B&#220;NDNIS 90/DIE GR&#220;NEN">B&#220;NDNIS 90/DIE GR&#220;NEN</option>
-        <option value="AfD">AfD</option>
         <option value="Die Linke">Die Linke</option>
         <option value="BSW">BSW</option>
+        <option value="SPD">SPD</option>
+        <option value="B&#220;NDNIS 90/DIE GR&#220;NEN">B&#220;NDNIS 90/DIE GR&#220;NEN</option>
+        <option value="FDP">FDP</option>
+        <option value="CDU/CSU">CDU/CSU</option>
+        <option value="AfD">AfD</option>
         <option value="fraktionslos">fraktionslos</option>
       </select>
     </div>
@@ -954,11 +995,43 @@ p_afd_gt_cdu <span class="kw">&lt;-</span> <span class="fn">mean</span>(afd_draw
 </div>
 </section>
 
-<!-- ── SECTION 07: AI WORKFLOW ───────────────────────────────────────────── -->
-<section id="prompts">
+<!-- ── SECTION 07: CONCLUSION ────────────────────────────────────────────── -->
+<section id="conclusion">
 <div class="container">
   <div class="section-header reveal">
     <span class="section-num" aria-hidden="true">07</span>
+    <h2 class="section-title">Conclusion</h2>
+    <span class="key-finding">Three methods, one signal: government-vs-opposition dominates 20th Bundestag voting</span>
+  </div>
+  <div class="reveal">
+  <p>
+    Three complementary methods &mdash; imputed SVD, double-centered SVD, and Bayesian 2PL
+    IRT &mdash; converge on the same finding: the 20th German Bundestag is overwhelmingly
+    one-dimensional in its roll-call voting behaviour. The dominant axis separates the Ampel
+    governing coalition (SPD, Gr&uuml;nen, FDP) from the opposition (CDU/CSU, AfD), with AfD
+    sitting furthest from the coalition pole. This structure is robust to the choice of
+    estimation method (\(r = 0.819\) between SVD and IRT) and to the choice of
+    prior (\(r = 0.886\) between normal and horseshoe).
+  </p>
+  <p>
+    The Bayesian IRT model adds what SVD cannot: calibrated uncertainty. Party orderings are
+    near-certain under the posterior &mdash; P(&theta;&#772;_AfD &gt; &theta;&#772;_CDU) =
+    <strong>100.0%</strong> across all 500 draws &mdash; even though individual
+    legislators carry substantial uncertainty. The dominant dimension should not be na&iuml;vely
+    labelled left&ndash;right ideology: it captures government-vs-opposition voting dynamics,
+    which in a coalition system conflate ideological position with cabinet membership.
+    Disentangling the two would require analysing only non-government-sponsored bills or
+    legislatures with mid-term coalition changes.
+  </p>
+  </div>
+</div>
+</section>
+
+<!-- ── SECTION 08: AI WORKFLOW ───────────────────────────────────────────── -->
+<section id="prompts">
+<div class="container">
+  <div class="section-header reveal">
+    <span class="section-num" aria-hidden="true">08</span>
     <h2 class="section-title">AI Workflow Documentation</h2>
     <span class="key-finding">AI-forward track &mdash; Claude Code (claude-sonnet-4-6)</span>
   </div>
@@ -1015,15 +1088,19 @@ p_afd_gt_cdu <span class="kw">&lt;-</span> <span class="fn">mean</span>(afd_draw
     <li>Posterior probabilities computed from draw-level party means, not point estimates</li>
     <li>All 9 figures rendered as interactive dark-mode Plotly charts</li>
   </ul>
+  <p style="margin-top:1.2rem">
+    Full chat history with Claude (claude.ai):
+    <a href="[CONVERSATION_URL_PLACEHOLDER]" target="_blank">View conversation</a>
+  </p>
   </div>
 </div>
 </section>
 
-<!-- ── SECTION 08: REFERENCES ────────────────────────────────────────────── -->
+<!-- ── SECTION 09: REFERENCES ────────────────────────────────────────────── -->
 <section id="refs">
 <div class="container">
   <div class="section-header reveal">
-    <span class="section-num" aria-hidden="true">08</span>
+    <span class="section-num" aria-hidden="true">09</span>
     <h2 class="section-title">References</h2>
   </div>
   <div class="reveal">
@@ -1112,15 +1189,11 @@ function lazyPlot(id, fn) {
   obs.observe(el);
 }
 
+/* Official Bundestag seating order (bottom-to-top for strip y-axis) */
+const BUNDESTAG_ORDER = ["fraktionslos","AfD","CDU/CSU","FDP","BÜNDNIS 90/DIE GRÜNEN","SPD","BSW","Die Linke"];
 function partyOrderByMean(field) {
-  const m = {};
-  RAW_DATA.forEach(d => {
-    if(d[field]==null) return;
-    if(!m[d.party]) m[d.party]={s:0,n:0};
-    m[d.party].s += d[field]; m[d.party].n++;
-  });
-  return Object.keys(m).filter(p => PARTY_COLORS[p])
-    .sort((a,b) => m[a].s/m[a].n - m[b].s/m[b].n);
+  const present = new Set(RAW_DATA.filter(d=>d[field]!=null).map(d=>d.party));
+  return BUNDESTAG_ORDER.filter(p => present.has(p));
 }
 
 function stripTraces(field, labelFn) {
@@ -1142,7 +1215,8 @@ function stripTraces(field, labelFn) {
 }
 
 function scatterTraces(xf,yf,labelFn,hl) {
-  const parties = [...new Set(RAW_DATA.map(d=>d.party))].sort();
+  const present = new Set(RAW_DATA.map(d=>d.party));
+  const parties = [...BUNDESTAG_ORDER].reverse().filter(p=>present.has(p));
   return parties.map(party=>{
     const rows = RAW_DATA.filter(d=>d.party===party && d[xf]!=null && d[yf]!=null);
     const isHL = (hl==="all"||party===hl);
@@ -1203,7 +1277,7 @@ lazyPlot("fig2-container", function() {
     Object.assign({},LAY_BASE,{
       title:{text:"SVD Dimension-1 Ideal Points by Party",font:{size:13,color:"#e8edf4"},x:0.02,xanchor:"left"},
       xaxis:Object.assign({},AX,{title:{text:"SVD Score (Dimension 1)"},zeroline:true}),
-      yaxis:Object.assign({},AX,{automargin:true}),
+      yaxis:Object.assign({},AX,{automargin:true,categoryorder:"array",categoryarray:BUNDESTAG_ORDER.map(sp)}),
       annotations:DIR_ANNO
     }),PC);
 });
@@ -1263,7 +1337,7 @@ lazyPlot("fig5-container", function() {
     Object.assign({},LAY_BASE,{
       title:{text:"DC-SVD Dimension-1 Ideal Points by Party",font:{size:13,color:"#e8edf4"},x:0.02,xanchor:"left"},
       xaxis:Object.assign({},AX,{title:{text:"DC-SVD Score (Dimension 1)"},zeroline:true}),
-      yaxis:Object.assign({},AX,{automargin:true}),
+      yaxis:Object.assign({},AX,{automargin:true,categoryorder:"array",categoryarray:BUNDESTAG_ORDER.map(sp)}),
       annotations:DIR_ANNO
     }),PC);
 });
@@ -1277,7 +1351,7 @@ lazyPlot("fig6-container", function() {
     Object.assign({},LAY_BASE,{
       title:{text:"IRT Posterior Mean Ideal Points (θ) by Party",font:{size:13,color:"#e8edf4"},x:0.02,xanchor:"left"},
       xaxis:Object.assign({},AX,{title:{text:"Posterior Mean Ideal Point (θ)"},zeroline:true}),
-      yaxis:Object.assign({},AX,{automargin:true}),
+      yaxis:Object.assign({},AX,{automargin:true,categoryorder:"array",categoryarray:BUNDESTAG_ORDER.map(sp)}),
       annotations:DIR_ANNO
     }),PC);
 });
@@ -1317,11 +1391,7 @@ lazyPlot("fig7-container", function() {
 lazyPlot("fig8-container", function() {
   const byParty = {};
   DRAWS_DATA.forEach(d=>{ if(!byParty[d.party]) byParty[d.party]=[]; byParty[d.party].push(d.theta); });
-  const order = Object.keys(byParty).sort((a,b)=>{
-    const ma=byParty[a].reduce((s,v)=>s+v,0)/byParty[a].length;
-    const mb=byParty[b].reduce((s,v)=>s+v,0)/byParty[b].length;
-    return ma-mb;
-  });
+  const order = BUNDESTAG_ORDER.filter(p => byParty[p]);
   const violins = order.map(party=>({
     type:"violin", orientation:"h", name:sp(party),
     x:byParty[party], y:byParty[party].map(_=>sp(party)),
@@ -1350,7 +1420,7 @@ lazyPlot("fig8-container", function() {
   Plotly.newPlot("fig8-container",[...violins,...ciTraces],Object.assign({},LAY_BASE,{
     title:{text:"Posterior Distributions of Party Mean Ideal Points (500 MCMC draws)",font:{size:13,color:"#e8edf4"},x:0.02,xanchor:"left"},
     xaxis:Object.assign({},AX,{title:{text:"Party Mean Ideal Point (θ)"},zeroline:true}),
-    yaxis:Object.assign({},AX,{automargin:true}),
+    yaxis:Object.assign({},AX,{automargin:true,categoryorder:"array",categoryarray:BUNDESTAG_ORDER.map(sp)}),
     violingap:0.05, violingroupgap:0,
     margin:Object.assign({},LAY_BASE.margin,{l:80})
   }),PC);
@@ -1380,7 +1450,8 @@ lazyPlot("fig9-container", function() {
 /* =========================================================================
    SECTION 05 — Interactive explorer
    ========================================================================= */
-const allParties = [...new Set(RAW_DATA.map(d=>d.party))].sort();
+const _present5 = new Set(RAW_DATA.map(d=>d.party));
+const allParties = [...BUNDESTAG_ORDER].reverse().filter(p=>_present5.has(p));
 function buildTraces(hl){
   return allParties.map(party=>{
     const rows=RAW_DATA.filter(d=>d.party===party);
