@@ -1190,10 +1190,6 @@ p_afd_gt_cdu <span class="kw">&lt;-</span> <span class="fn">mean</span>(afd_draw
     <li>Posterior probabilities computed from draw-level party means, not point estimates</li>
     <li>All 9 figures rendered as interactive dark-mode Plotly charts</li>
   </ul>
-  <p style="margin-top:1.2rem">
-    Full chat history with Claude (claude.ai):
-    <a href="[CONVERSATION_URL_PLACEHOLDER]" target="_blank">View conversation</a>
-  </p>
   </div>
 </div>
 </section>
