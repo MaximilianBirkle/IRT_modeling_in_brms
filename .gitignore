@@ -47,3 +47,11 @@ po/*~
 
 # RStudio Connect folder
 rsconnect/
+
+# Cached Stan/brms model objects (large binary files)
+models/
+*.rds
+
+# Analysis log
+analysis_log.txt
+.DS_Store

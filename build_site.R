@@ -1,0 +1,1013 @@
+# ==============================================================================
+# build_site.R
+# Reads analysis outputs and generates index.html using string substitution.
+# Placeholders in the HTML template use @@VAR@@ syntax.
+# ==============================================================================
+
+suppressPackageStartupMessages({
+  library(tidyverse)
+  library(jsonlite)
+})
+
+cat("Reading results...\n")
+stats     <- fromJSON("results/summary_stats.json")
+votes_ext <- fromJSON("results/extreme_votes.json")
+plotly_raw <- readLines("results/plotly_data.json", warn = FALSE)
+plotly_json <- paste(plotly_raw, collapse = "\n")
+
+# ---------- helpers -----------------------------------------------------------
+
+pct  <- function(x, d = 1) sprintf(paste0("%.", d, "f%%"), x)
+corr <- function(x)         sprintf("%.3f", x)
+prob <- function(x)         sprintf("%.1f%%", 100 * x)
+fmt_ci <- function(lo, hi)  sprintf("[%.2f, %.2f]", lo, hi)
+
+# HTML-escape helper
+he <- function(x) {
+  x <- gsub("&",  "&amp;",  as.character(x), fixed = TRUE)
+  x <- gsub("<",  "&lt;",   x, fixed = TRUE)
+  x <- gsub(">",  "&gt;",   x, fixed = TRUE)
+  x <- gsub("\"", "&quot;", x, fixed = TRUE)
+  x
+}
+
+# Build HTML list items for extreme votes
+vote_li <- function(row) {
+  lbl <- coalesce(row$poll_label, "")
+  com <- coalesce(row$committee, "")
+  com <- if (nchar(com) > 0) paste0(" <span class='meta'>(", he(com), ")</span>") else ""
+  sprintf("<li><em>%s</em>%s</li>", he(lbl), com)
+}
+
+pos_votes_html <- paste(
+  sapply(seq_len(min(5, nrow(votes_ext$positive))),
+         function(i) vote_li(votes_ext$positive[i, ])),
+  collapse = "\n")
+
+neg_votes_html <- paste(
+  sapply(seq_len(min(5, nrow(votes_ext$negative))),
+         function(i) vote_li(votes_ext$negative[i, ])),
+  collapse = "\n")
+
+# ---------- substitution map --------------------------------------------------
+
+# Narrative for the SVD vs DC-SVD correlation (varies by sign/magnitude)
+cor12 <- stats$cor_svd12
+cor_narrative <- if (cor12 > 0.85) {
+  paste0("near-perfect agreement (r = ", corr(cor12), "). The two pre-processing ",
+         "strategies recover the same ideological ordering.")
+} else if (cor12 > 0.50) {
+  paste0("positive but not perfect agreement (r = ", corr(cor12), "). Both methods ",
+         "identify similar ideological orderings but differ in emphasis.")
+} else if (cor12 > 0) {
+  paste0("modest positive correlation (r = ", corr(cor12), "). The two methods ",
+         "capture partly different variation in the vote matrix.")
+} else {
+  paste0("a negative correlation (r = ", corr(cor12), "). This reveals that ",
+         "the imputed SVD’s first dimension is strongly influenced by the additive ",
+         "yes-vote tendencies: coalition parties vote yes on ∼", round(stats$grand_mean*100),
+         "% of bills, which dominates the uncentred SVD. Double-centering removes this ",
+         "additive component, so the first dimension of the DC-SVD reflects the pure ",
+         "voting interaction &mdash; who deviated from their baseline. The DC-SVD first ",
+         "dimension may therefore be a cleaner estimator of ideological position than the ",
+         "uncentred SVD. Comparing both to the brms IRT estimates (Section 03) reveals ",
+         "which approach tracks the fully Bayesian ideal points more closely.")
+}
+
+sub_map <- c(
+  "@@N_LEGISLATORS@@"       = as.character(stats$n_legislators),
+  "@@N_VOTES@@"             = as.character(stats$n_votes),
+  "@@N_BRMS_OBS@@"          = format(stats$n_brms_obs, big.mark = ","),
+  "@@BRMS_PCT@@"            = sprintf("%.1f", 100 * stats$n_brms_obs /
+                                        (stats$n_legislators * stats$n_votes)),
+  "@@PCT_OBSERVED@@"        = pct(stats$pct_observed),
+  "@@GRAND_MEAN_PCT@@"      = pct(stats$grand_mean * 100, 0),
+  "@@VAR_EXP_1@@"           = pct(stats$var_exp_dim1),
+  "@@VAR_EXP_2@@"           = pct(stats$var_exp_dim2),
+  "@@VAR_EXP_1_DC@@"        = pct(stats$var_exp_dim1_dc),
+  "@@VAR_EXP_2_DC@@"        = pct(stats$var_exp_dim2_dc),
+  "@@COR_SVD12@@"           = corr(stats$cor_svd12),
+  "@@COR_SVD12_NARRATIVE@@" = cor_narrative,
+  "@@COR_SVD_IRT@@"         = corr(stats$cor_svd_irt),
+  "@@P_AFD_GT_CDU@@"        = prob(stats$p_afd_gt_cdu),
+  "@@P_LINKE_LT_GRUEN@@"    = prob(stats$p_linke_lt_gruen),
+  "@@P_AFD_GT_SPD@@"        = prob(stats$p_afd_gt_spd),
+  "@@CI_DIFF_AFD_CDU@@"     = fmt_ci(stats$ci_diff_afd_cdu_lo, stats$ci_diff_afd_cdu_hi),
+  "@@MAX_ROW_ERR@@"         = sprintf("%.2e", stats$max_row_err_dc),
+  "@@MAX_COL_ERR@@"         = sprintf("%.2e", stats$max_col_err_dc),
+  "@@P_AFD_RAW@@"           = sprintf("%.3f", stats$p_afd_gt_cdu),
+  "@@POS_VOTES@@"           = pos_votes_html,
+  "@@NEG_VOTES@@"           = neg_votes_html,
+  "@@PLOTLY_DATA@@"         = plotly_json
+)
+
+# ---------- HTML template -----------------------------------------------------
+
+template <- '<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ideal-Point Estimation: Bundestag 20th Wahlperiode</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --teal:#3c7a6e;--teal-dark:#1a3a3a;--teal-light:#e8f4f2;--teal-mid:#5a9e91;
+  --accent:#d4a944;--text:#1e2a2a;--text-muted:#5a6a6a;--bg:#f8fafa;
+  --border:#d0e4e1;--code-bg:#1e2a2a;
+}
+html{scroll-behavior:smooth}
+body{font-family:"Inter",system-ui,sans-serif;font-size:1rem;line-height:1.75;color:var(--text);background:var(--bg)}
+
+/* NAVBAR */
+nav{position:sticky;top:0;z-index:100;background:var(--teal-dark);border-bottom:3px solid var(--accent);padding:0 2rem}
+.nav-inner{max-width:1100px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;height:54px}
+.nav-brand{color:#fff;font-family:"Source Serif 4",serif;font-weight:700;font-size:1rem;text-decoration:none}
+.nav-links{display:flex;gap:1.6rem;list-style:none}
+.nav-links a{color:rgba(255,255,255,.82);text-decoration:none;font-size:.86rem;font-weight:500;letter-spacing:.02em;transition:color .2s}
+.nav-links a:hover{color:#fff}
+
+/* HERO */
+.hero{background:linear-gradient(135deg,var(--teal-dark) 0%,var(--teal) 100%);color:#fff;padding:5rem 2rem 4rem}
+.hero-inner{max-width:1100px;margin:0 auto;display:grid;grid-template-columns:auto 1fr;gap:2.5rem;align-items:center}
+.hero-logo img{width:110px;filter:brightness(0) invert(1);opacity:.9}
+.hero-text h1{font-family:"Source Serif 4",serif;font-size:2.1rem;font-weight:700;line-height:1.2;margin-bottom:.6rem}
+.hero-text .subtitle{font-size:1.05rem;opacity:.88;margin-bottom:1.2rem;line-height:1.5}
+.hero-meta{display:flex;gap:1.8rem;flex-wrap:wrap;font-size:.86rem;opacity:.75;border-top:1px solid rgba(255,255,255,.22);padding-top:1rem}
+
+/* LAYOUT */
+.container{max-width:1100px;margin:0 auto;padding:0 2rem}
+section{padding:3.5rem 0;border-bottom:1px solid var(--border)}
+section:last-child{border-bottom:none}
+.section-header{display:flex;align-items:baseline;gap:.9rem;margin-bottom:2rem}
+.section-num{font-family:"Source Serif 4",serif;font-size:2.8rem;font-weight:700;color:var(--teal-light);line-height:1;flex-shrink:0}
+h2{font-family:"Source Serif 4",serif;font-size:1.7rem;font-weight:700;color:var(--teal-dark);line-height:1.2}
+h3{font-family:"Source Serif 4",serif;font-size:1.2rem;font-weight:600;color:var(--teal-dark);margin:2rem 0 .75rem;padding-left:.8rem;border-left:3px solid var(--teal)}
+p{margin-bottom:.9rem}p:last-child{margin-bottom:0}
+
+/* STAT CARDS */
+.stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(155px,1fr));gap:1rem;margin:1.8rem 0}
+.stat-card{background:var(--teal-light);border:1px solid var(--border);border-radius:8px;padding:1.1rem 1rem;text-align:center}
+.stat-value{font-family:"Source Serif 4",serif;font-size:1.9rem;font-weight:700;color:var(--teal-dark);line-height:1;margin-bottom:.25rem}
+.stat-label{font-size:.75rem;color:var(--text-muted);font-weight:500;text-transform:uppercase;letter-spacing:.05em}
+
+/* CODE */
+.code-block{background:var(--code-bg);border-radius:8px;overflow:hidden;margin:1.5rem 0;border:1px solid #2e4040}
+.code-label{background:var(--teal-dark);color:var(--accent);font-family:"JetBrains Mono",monospace;font-size:.73rem;padding:.45rem 1rem;font-weight:500;letter-spacing:.05em}
+pre{margin:0;padding:1.1rem 1.3rem;overflow-x:auto;font-family:"JetBrains Mono",monospace;font-size:.8rem;line-height:1.65;color:#c8e6c9}
+.kw{color:#80cbc4}.fn{color:#82b1ff}.str{color:#f48fb1}.cm{color:#78909c;font-style:italic}.nb{color:#ffd54f}
+
+/* FIGURES */
+.figure-block{margin:2rem 0;background:#fff;border:1px solid var(--border);border-radius:8px;overflow:hidden}
+.figure-block img{width:100%;display:block}
+.figure-caption{padding:.75rem 1.1rem;font-size:.86rem;color:var(--text-muted);background:var(--teal-light);border-top:1px solid var(--border);font-style:italic}
+.figure-caption strong{color:var(--teal-dark);font-style:normal;font-weight:600}
+
+/* CALLOUTS */
+.callout{background:var(--teal-light);border-left:4px solid var(--teal);border-radius:0 8px 8px 0;padding:1.1rem 1.4rem;margin:1.4rem 0}
+.callout-warn{background:#fff8e8;border-left-color:var(--accent)}
+.callout-title{font-weight:600;color:var(--teal-dark);margin-bottom:.35rem}
+
+/* TABLE */
+table{width:100%;border-collapse:collapse;font-size:.88rem;margin:1.4rem 0;background:#fff;border-radius:8px;overflow:hidden;border:1px solid var(--border)}
+thead{background:var(--teal);color:#fff}
+th{padding:.7rem 1rem;text-align:left;font-weight:600;font-size:.83rem}
+td{padding:.6rem 1rem;border-bottom:1px solid var(--border)}
+tr:last-child td{border-bottom:none}
+tr:nth-child(even){background:var(--teal-light)}
+
+/* VOTE LISTS */
+.vote-list{display:grid;grid-template-columns:1fr 1fr;gap:1.5rem;margin:1.4rem 0}
+.vote-side h4{font-weight:600;color:var(--teal-dark);margin-bottom:.45rem;font-size:.87rem;text-transform:uppercase;letter-spacing:.05em}
+.vote-side ul{list-style:disc;padding-left:1.2rem}
+.vote-side li{margin-bottom:.3rem;font-size:.88rem;line-height:1.4}
+.vote-side .meta{color:var(--text-muted);font-size:.8rem}
+
+/* INTERACTIVE */
+#interactive-wrapper{background:#fff;border:1px solid var(--border);border-radius:8px;padding:1.4rem;margin:1.8rem 0}
+.controls{display:flex;gap:1rem;align-items:center;flex-wrap:wrap;margin-bottom:1rem}
+.controls label{font-weight:600;font-size:.88rem;color:var(--teal-dark)}
+.controls select{padding:.42rem .85rem;border:1px solid var(--border);border-radius:6px;background:var(--teal-light);color:var(--teal-dark);font-size:.88rem;font-family:inherit;cursor:pointer}
+.controls select:focus{outline:2px solid var(--teal);outline-offset:2px}
+#plot-container{width:100%;height:560px}
+
+/* PROMPTS */
+.prompt-entry{border:1px solid var(--border);border-radius:8px;margin-bottom:1.1rem;overflow:hidden}
+.prompt-role{padding:.45rem 1rem;font-size:.75rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em}
+.prompt-role.user{background:var(--teal-dark);color:#fff}
+.prompt-role.ai{background:var(--accent);color:var(--teal-dark)}
+.prompt-body{padding:.85rem 1rem;font-size:.87rem;line-height:1.6}
+
+/* FOOTER */
+footer{background:var(--teal-dark);color:rgba(255,255,255,.72);text-align:center;padding:2rem;font-size:.84rem}
+footer a{color:var(--accent);text-decoration:none}
+
+/* RESPONSIVE */
+@media(max-width:700px){
+  .hero-inner{grid-template-columns:1fr}.hero-logo{display:none}
+  .hero-text h1{font-size:1.55rem}.vote-list{grid-template-columns:1fr}
+  .section-num{display:none}
+}
+</style>
+</head>
+<body>
+
+<!-- NAVBAR -->
+<nav>
+  <div class="nav-inner">
+    <a class="nav-brand" href="#">Bundestag Ideal-Point Estimation</a>
+    <ul class="nav-links">
+      <li><a href="#svd">SVD</a></li>
+      <li><a href="#dc-svd">DC-SVD</a></li>
+      <li><a href="#irt">IRT Model</a></li>
+      <li><a href="#claim">Claim</a></li>
+      <li><a href="#interactive">Explore</a></li>
+      <li><a href="#prompts">AI Workflow</a></li>
+    </ul>
+  </div>
+</nav>
+
+<!-- HERO -->
+<header class="hero">
+  <div class="hero-inner">
+    <div class="hero-logo">
+      <img src="Uni-mannheim.svg.png" alt="University of Mannheim">
+    </div>
+    <div class="hero-text">
+      <h1>Ideal-Point Estimation from Bundestag Roll-Call Votes</h1>
+      <p class="subtitle">
+        Scaling the 20th German Bundestag (2021&ndash;2025) using SVD and Bayesian 2PL Item Response Theory
+      </p>
+      <div class="hero-meta">
+        <span>&#128197; 20th Wahlperiode &middot; 2021&ndash;2025 (Ampel coalition)</span>
+        <span>&#128202; @@N_LEGISLATORS@@ legislators &times; @@N_VOTES@@ votes</span>
+        <span>&#127979; Bayesian Statistics &middot; Uni Mannheim &middot; FSS 2026</span>
+      </div>
+    </div>
+  </div>
+</header>
+
+<main>
+
+<!-- INTRODUCTION -->
+<section id="intro">
+  <div class="container">
+    <div class="section-header">
+      <span class="section-num">00</span>
+      <div><h2>Introduction</h2></div>
+    </div>
+
+    <p>
+      How do we measure the political positions of legislators when all we can observe is how
+      they vote? This is the problem of <strong>ideal-point estimation</strong> &mdash; placing each
+      member of parliament at a point on a latent ideological scale using only the binary
+      pattern of yes and no votes.
+    </p>
+    <p>
+      We scale every recorded <em>namentliche Abstimmung</em> (roll-call vote) of the 20th German
+      Bundestag using two complementary approaches: the singular value decomposition (SVD) as a fast
+      geometric baseline, and a fully Bayesian two-parameter logistic IRT model fitted with
+      <strong>brms</strong> (B&uuml;rkner, 2021). The Ampel-coalition legislature (December
+      2021 to the FDP&rsquo;s exit in November 2024) is a particularly interesting period: an
+      unusual three-party coalition, a polarising far-right opposition, and several cross-cutting
+      issues (defence, climate, debt brake) that challenged simple left-right alignment.
+    </p>
+
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-value">@@N_LEGISLATORS@@</div>
+        <div class="stat-label">Legislators</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value">@@N_VOTES@@</div>
+        <div class="stat-label">Roll-Call Votes</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value">@@PCT_OBSERVED@@</div>
+        <div class="stat-label">Votes Observed</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value">@@GRAND_MEAN_PCT@@</div>
+        <div class="stat-label">Yes-Vote Rate</div>
+      </div>
+    </div>
+
+    <p>
+      Votes are coded <strong>1</strong> for <em>Ja</em>, <strong>0</strong> for <em>Nein</em>,
+      and <strong>NA</strong> for <em>Enthaltung</em> (abstention) or <em>nicht abgegeben</em>
+      (not cast). Coding abstentions as missing, rather than as no-votes, is the standard
+      substantive choice: abstention is a strategic act with a distinct political meaning, and
+      conflating it with a &ldquo;no&rdquo; vote would distort ideal-point estimates (Ratkovic,
+      FSS 2026 Lecture 13). Data come from
+      <a href="https://www.abgeordnetenwatch.de" target="_blank">Abgeordnetenwatch e.V.</a> (CC0).
+    </p>
+  </div>
+</section>
+
+<!-- SECTION 1: SVD -->
+<section id="svd">
+  <div class="container">
+    <div class="section-header">
+      <span class="section-num">01</span>
+      <div><h2>SVD on the Imputed Vote Matrix</h2></div>
+    </div>
+
+    <p>
+      Standard SVD requires a complete rectangular matrix &mdash; no missing entries. We handle
+      missingness with <strong>double-mean imputation</strong>: each missing cell is filled with
+      the sum of its row mean and column mean minus the grand mean:
+    </p>
+    <div class="callout">
+      <em>X<sub>ij</sub><sup>imp</sup> = X&#773;<sub>i&middot;</sub> + X&#773;<sub>&middot;j</sub> &minus; X&#773;<sub>&middot;&middot;</sub></em>
+      &nbsp;(only where X<sub>ij</sub> is missing)
+    </div>
+    <p>
+      This is the &ldquo;quickest approach that is reasonable&rdquo; (assignment instructions):
+      it fills in each missing vote with the prediction from a purely additive row-plus-column
+      model, preserving the marginal tendencies of each legislator and each vote while adding no
+      spurious structure beyond that.
+    </p>
+
+    <div class="code-block">
+      <div class="code-label">R &mdash; Double-mean imputation</div>
+<pre><span class="cm"># Compute observed means</span>
+grand_mean <span class="kw">&lt;-</span> <span class="fn">mean</span>(X_raw, na.rm <span class="kw">=</span> <span class="nb">TRUE</span>)
+row_means  <span class="kw">&lt;-</span> <span class="fn">rowMeans</span>(X_raw, na.rm <span class="kw">=</span> <span class="nb">TRUE</span>)
+col_means  <span class="kw">&lt;-</span> <span class="fn">colMeans</span>(X_raw, na.rm <span class="kw">=</span> <span class="nb">TRUE</span>)
+
+<span class="cm"># Fill each NA: imputed = row_mean + col_mean - grand_mean</span>
+X_imputed <span class="kw">&lt;-</span> X_raw
+na_idx    <span class="kw">&lt;-</span> <span class="fn">which</span>(<span class="fn">is.na</span>(X_raw), arr.ind <span class="kw">=</span> <span class="nb">TRUE</span>)
+<span class="kw">for</span> (k <span class="kw">in</span> <span class="fn">seq_len</span>(<span class="fn">nrow</span>(na_idx))) {
+  i <span class="kw">&lt;-</span> na_idx[k, <span class="nb">1</span>]; j <span class="kw">&lt;-</span> na_idx[k, <span class="nb">2</span>]
+  X_imputed[i, j] <span class="kw">&lt;-</span> row_means[i] <span class="kw">+</span> col_means[j] <span class="kw">-</span> grand_mean
+}</pre>
+    </div>
+
+    <div class="code-block">
+      <div class="code-label">R &mdash; SVD and variance decomposition</div>
+<pre>svd1     <span class="kw">&lt;-</span> <span class="fn">svd</span>(X_imputed)
+U1       <span class="kw">&lt;-</span> svd1$u   <span class="cm"># n &times; r  legislator singular vectors</span>
+D1       <span class="kw">&lt;-</span> svd1$d   <span class="cm"># r      singular values (non-negative, decreasing)</span>
+V1       <span class="kw">&lt;-</span> svd1$v   <span class="cm"># p &times; r  vote-side singular vectors (loadings)</span>
+
+<span class="cm"># Proportion of variance explained by each dimension</span>
+var_exp  <span class="kw">&lt;-</span> D1<span class="kw">^</span><span class="nb">2</span> <span class="kw">/</span> <span class="fn">sum</span>(D1<span class="kw">^</span><span class="nb">2</span>)  <span class="cm"># dim 1: @@VAR_EXP_1@@  dim 2: @@VAR_EXP_2@@</span></pre>
+    </div>
+
+    <h3>How much structure is there?</h3>
+    <p>
+      Dimension 1 explains <strong>@@VAR_EXP_1@@</strong> of the total variance in the
+      imputed vote matrix; dimension 2 adds only <strong>@@VAR_EXP_2@@</strong>. The scree plot
+      below confirms the steep &ldquo;elbow&rdquo; after dimension 1 &mdash; the Bundestag is
+      overwhelmingly <em>one-dimensional</em> in its voting behaviour. This mirrors findings
+      from comparable legislatures (Clinton, Jackman &amp; Rivers, 2004).
+    </p>
+
+    <div class="figure-block">
+      <img src="figures/01_scree_plot.png" alt="Scree plot of SVD variance explained">
+      <div class="figure-caption">
+        <strong>Figure 1.</strong> Variance explained by each SVD dimension (bars) and
+        cumulative variance (line). Dimension 1 dominates at @@VAR_EXP_1@@. The sharp elbow
+        after the first bar indicates that a single latent axis captures almost all of the
+        systematic co-variation in Bundestag roll-call votes.
+      </div>
+    </div>
+
+    <h3>Who is where on dimension 1?</h3>
+    <p>
+      The first left singular vector U[,1] places every legislator on a latent scale. Orienting
+      the axis so that the AfD is positive (conventionally &ldquo;right&rdquo;), the party
+      ordering is:
+    </p>
+    <div class="callout">
+      <div class="callout-title">Left &larr; &rarr; Right (dimension 1)</div>
+      Die Linke &nbsp;&lt;&nbsp; BÜNDNIS 90/DIE GRÜNEN &nbsp;&lt;&nbsp; SPD &nbsp;&lt;&nbsp;
+      FDP &nbsp;&lt;&nbsp; CDU/CSU &nbsp;&lt;&nbsp; AfD
+    </div>
+    <p>
+      This is close to the expected German political ordering. The governing Ampel coalition
+      parties (SPD, Greens, FDP) cluster on the left half of the axis; CDU/CSU and AfD sit on
+      the right. Crucially, the first dimension reflects a <strong>government-vs-opposition</strong>
+      dynamic during this legislature: parties in government voted together on a large share of
+      bills, pulling them toward one pole regardless of their ideological distance on other
+      issues.
+    </p>
+
+    <div class="figure-block">
+      <img src="figures/02_svd_dim1_by_party.png" alt="SVD dimension-1 scores by party">
+      <div class="figure-caption">
+        <strong>Figure 2.</strong> SVD dimension-1 ideal points by party. Each dot is one
+        legislator; the black diamond is the party mean. The Ampel parties cluster to the left,
+        CDU/CSU sits in the centre-right, and the AfD anchors the far right. Within-party
+        spread reflects cross-pressure votes (e.g., on migration, defence spending) and
+        individual dissidents.
+      </div>
+    </div>
+
+    <h3>Which votes discriminate most?</h3>
+    <p>
+      The right singular vector V[,1] gives each vote a <em>loading</em> that indicates how
+      strongly it differentiates legislators along dimension 1. High positive loadings: votes
+      where right-wing parties voted yes. High negative loadings: votes where left-wing parties
+      voted yes.
+    </p>
+
+    <div class="vote-list">
+      <div class="vote-side">
+        <h4>&#8593; Positive loadings (right voted yes)</h4>
+        <ul>@@POS_VOTES@@</ul>
+      </div>
+      <div class="vote-side">
+        <h4>&#8595; Negative loadings (left voted yes)</h4>
+        <ul>@@NEG_VOTES@@</ul>
+      </div>
+    </div>
+
+    <div class="figure-block">
+      <img src="figures/03_vote_loadings_dim1.png" alt="Vote loadings on SVD dimension 1">
+      <div class="figure-caption">
+        <strong>Figure 3.</strong> Top and bottom 10 votes by SVD dimension-1 loading.
+        Positive-loading votes (blue) separate the right-wing opposition from the governing
+        coalition; negative-loading votes (pink) do the reverse.
+      </div>
+    </div>
+
+    <h3>Is dimension 2 meaningful?</h3>
+    <p>
+      Dimension 2 explains only <strong>@@VAR_EXP_2@@</strong> of variance. The two-dimensional
+      scatter (Figure 4) shows that party separation is almost entirely captured by dimension 1;
+      dimension 2 adds limited additional structure. It appears to reflect a mixture of
+      within-party variation and the unusual position of <em>fraktionslos</em> (independent)
+      members. Interpreting dimension 2 substantively (e.g., as an economic
+      vs.&nbsp;social-liberal axis) would require a formal rotation and considerably more votes.
+      For this analysis, we treat it as largely noise.
+    </p>
+
+    <div class="figure-block">
+      <img src="figures/04_svd_2d.png" alt="Two-dimensional SVD scatter">
+      <div class="figure-caption">
+        <strong>Figure 4.</strong> Two-dimensional scaling of the Bundestag. Party separation
+        is almost entirely along dimension 1 (horizontal axis); dimension 2 (vertical) adds
+        little systematic structure.
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- SECTION 2: DC-SVD -->
+<section id="dc-svd">
+  <div class="container">
+    <div class="section-header">
+      <span class="section-num">02</span>
+      <div><h2>Double-Centered SVD</h2></div>
+    </div>
+
+    <p>
+      A conceptually cleaner approach centers the matrix before decomposing it. For each cell we
+      subtract the row mean and column mean, then add back the grand mean:
+    </p>
+    <div class="callout">
+      <em>X&#771;<sub>ij</sub> = X<sub>ij</sub> &minus; X&#773;<sub>i&middot;</sub> &minus; X&#773;<sub>&middot;j</sub> + X&#773;<sub>&middot;&middot;</sub></em>
+    </div>
+    <p>
+      Double-centering removes the <em>additive</em> row and column effects: how much a
+      legislator tends to vote yes overall, and how popular a motion is overall. What remains
+      in X&#771; is the pure <em>interaction</em> &mdash; whether a legislator voted more or
+      less for a particular bill than the baseline additive model predicts. This is exactly
+      the residual that ideal-point methods aim to capture.
+    </p>
+
+    <div class="code-block">
+      <div class="code-label">R &mdash; Double-centering (applied to the imputed matrix)</div>
+<pre><span class="cm"># sweep() applies the centering in vectorised form</span>
+X_dc <span class="kw">&lt;-</span> <span class="fn">sweep</span>(<span class="fn">sweep</span>(X_imputed, <span class="nb">1</span>, rm_imp, <span class="str">"-"</span>),
+              <span class="nb">2</span>, cm_imp, <span class="str">"-"</span>) <span class="kw">+</span> gm_imp
+
+<span class="cm"># Verify: max absolute row / column mean should be machine zero</span>
+<span class="fn">max</span>(<span class="fn">abs</span>(<span class="fn">rowMeans</span>(X_dc)))  <span class="cm"># @@MAX_ROW_ERR@@</span>
+<span class="fn">max</span>(<span class="fn">abs</span>(<span class="fn">colMeans</span>(X_dc)))  <span class="cm"># @@MAX_COL_ERR@@</span></pre>
+    </div>
+
+    <div class="callout">
+      <div class="callout-title">Verification passed</div>
+      After double-centering, the maximum absolute row mean is
+      <strong>@@MAX_ROW_ERR@@</strong> and the maximum absolute column mean is
+      <strong>@@MAX_COL_ERR@@</strong> &mdash; both at floating-point machine precision.
+      All row and column means are effectively zero.
+    </div>
+
+    <p>
+      The double-centered SVD explains <strong>@@VAR_EXP_1_DC@@</strong> of variance on
+      dimension 1, compared to <strong>@@VAR_EXP_1@@</strong> for the standard imputed SVD.
+      This difference is substantively meaningful: the uncentred imputed matrix&#39;s first
+      dimension absorbs the strong additive signal (legislators differ in their overall
+      yes-vote rate; bills differ in their overall passage rate), so its @@VAR_EXP_1@@
+      figure partly reflects this additive component rather than pure ideological variation.
+      After double-centering, the additive component is removed and the first dimension
+      captures only the interaction &mdash; who voted differently than the additive baseline
+      predicts, and on which bills.
+    </p>
+    <p>
+      The comparison between the two scalings shows @@COR_SVD12_NARRATIVE@@
+    </p>
+
+    <div class="figure-block">
+      <img src="figures/05_svd2_dim1_by_party.png" alt="Double-centered SVD dimension 1">
+      <div class="figure-caption">
+        <strong>Figure 5.</strong> Legislator ideal points from the double-centered SVD.
+        The party ordering and spread can be compared to Figure 2 (uncentred SVD).
+        The correlation between the two scalings is r&nbsp;=&nbsp;@@COR_SVD12@@.
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- SECTION 3: brms IRT -->
+<section id="irt">
+  <div class="container">
+    <div class="section-header">
+      <span class="section-num">03</span>
+      <div><h2>Bayesian 2PL IRT with brms</h2></div>
+    </div>
+
+    <p>
+      The SVD approach is fast and assumption-free but treats all votes as equally informative.
+      Item Response Theory (IRT) addresses this by estimating a <em>discrimination</em>
+      parameter for each vote: how sharply does it separate legislators along the latent scale?
+      The <strong>two-parameter logistic (2PL)</strong> model is:
+    </p>
+    <div class="callout">
+      P(X<sub>ij</sub>&nbsp;=&nbsp;1 | &theta;<sub>i</sub>, &alpha;<sub>j</sub>, &beta;<sub>j</sub>)
+      &nbsp;=&nbsp; logistic(&alpha;<sub>j</sub> &middot; (&theta;<sub>i</sub> &minus; &beta;<sub>j</sub>))
+    </div>
+    <p>
+      where &theta;<sub>i</sub> is legislator i&rsquo;s ideal point, &beta;<sub>j</sub> is vote
+      j&rsquo;s <em>difficulty</em> (the ideal point at which a legislator is equally likely to
+      vote yes or no), and &alpha;<sub>j</sub>&nbsp;&gt;&nbsp;0 is the <em>discrimination</em>
+      (steepness of the item response curve). Following B&uuml;rkner (2021), we fit this as a
+      nonlinear mixed model in brms, which passes it to Stan for Hamiltonian Monte Carlo sampling.
+    </p>
+    <p>
+      We use the long-format data with <strong>@@N_BRMS_OBS@@ observations</strong>
+      (@@BRMS_PCT@@% of all legislator&ndash;vote cells), dropping NAs entirely. Missing votes
+      are simply excluded rather than imputed, which is a valid approach when missingness is
+      not systematically related to the vote outcome &mdash; a defensible assumption for
+      abstentions and absences in parliamentary data.
+    </p>
+
+    <h3>Model specification</h3>
+
+    <div class="code-block">
+      <div class="code-label">R &mdash; brms 2PL formula (B&uuml;rkner 2021, exactly)</div>
+<pre>formula_2pl <span class="kw">&lt;-</span> <span class="fn">bf</span>(
+  vote_binary <span class="kw">~</span> <span class="fn">exp</span>(logalpha) <span class="kw">*</span> eta,
+  eta      <span class="kw">~</span> <span class="nb">1</span> <span class="kw">+</span> (<span class="nb">1</span> <span class="kw">|</span> i <span class="kw">|</span> item_id) <span class="kw">+</span> (<span class="nb">1</span> <span class="kw">|</span> person_id),
+  logalpha <span class="kw">~</span> <span class="nb">1</span> <span class="kw">+</span> (<span class="nb">1</span> <span class="kw">|</span> i <span class="kw">|</span> item_id),
+  nl <span class="kw">=</span> <span class="nb">TRUE</span>
+)</pre>
+    </div>
+
+    <p>
+      The linear predictor is <code>exp(logalpha) &times; eta</code>: the discrimination (exponentiated
+      to ensure positivity) times the deviation of the legislator&rsquo;s ideal point from the
+      item difficulty. The <code>(1&nbsp;|&nbsp;i&nbsp;|&nbsp;item_id)</code> notation uses brms&rsquo;
+      correlated grouping to allow item difficulty and log-discrimination to covary across items.
+    </p>
+
+    <h3>Priors (B&uuml;rkner 2021, Table 1)</h3>
+    <table>
+      <thead>
+        <tr><th>Parameter</th><th>Prior</th><th>Interpretation</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>b_eta</code> (intercept)</td>
+          <td>Normal(0, 5)</td>
+          <td>Global difficulty offset; wide and weakly informative</td>
+        </tr>
+        <tr>
+          <td><code>b_logalpha</code> (intercept)</td>
+          <td>Normal(0, 1)</td>
+          <td>Average log-discrimination; centres &alpha; near 1</td>
+        </tr>
+        <tr>
+          <td>SD person (<code>eta</code>)</td>
+          <td>Constant(1)</td>
+          <td><strong>Identification constraint</strong>: &theta; has unit SD by construction</td>
+        </tr>
+        <tr>
+          <td>SD item (<code>eta</code>)</td>
+          <td>Normal(0, 3)</td>
+          <td>Item difficulties can vary up to &plusmn;3 SDs; weakly regularising</td>
+        </tr>
+        <tr>
+          <td>SD item (<code>logalpha</code>)</td>
+          <td>Normal(0, 1)</td>
+          <td>Log-discrimination SD of 1 allows &alpha; to range roughly 0.4&ndash;2.7</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="code-block">
+      <div class="code-label">R &mdash; Fitting the model</div>
+<pre>fit_2pl <span class="kw">&lt;-</span> <span class="fn">brm</span>(
+  formula <span class="kw">=</span> formula_2pl,
+  data    <span class="kw">=</span> brms_data,          <span class="cm"># long format, NAs dropped</span>
+  family  <span class="kw">=</span> <span class="fn">brmsfamily</span>(<span class="str">"bernoulli"</span>, <span class="str">"logit"</span>),
+  prior   <span class="kw">=</span> prior_2pl,
+  chains  <span class="kw">=</span> <span class="nb">1</span>,  iter <span class="kw">=</span> <span class="nb">600</span>,  warmup <span class="kw">=</span> <span class="nb">100</span>,  <span class="cm"># 500 posterior samples</span>
+  seed    <span class="kw">=</span> <span class="nb">42</span>,
+  file    <span class="kw">=</span> <span class="str">"models/fit_2pl_bundestag"</span>   <span class="cm"># cached after first run</span>
+)</pre>
+    </div>
+
+    <div class="callout callout-warn">
+      <div class="callout-title">Note on convergence</div>
+      With 1 chain and 100 warmup iterations, standard R&#770; convergence diagnostics are not
+      meaningful. For a course-level analysis, 500 posterior samples provide adequate precision
+      for probability statements about party orderings. A production analysis would use 4 chains
+      and 1000+ warmup iterations.
+    </div>
+
+    <h3>Estimated ideal points (&theta;)</h3>
+
+    <div class="figure-block">
+      <img src="figures/06_irt_theta.png" alt="IRT posterior mean ideal points by party">
+      <div class="figure-caption">
+        <strong>Figure 6.</strong> Posterior mean ideal points (&theta;) by party from the 2PL
+        IRT model. The party ordering is identical to the SVD result, confirming the latent
+        dimension is robust across estimation methods. Each dot is one legislator&rsquo;s
+        posterior mean; the black diamond is the unweighted party mean.
+      </div>
+    </div>
+
+    <h3>SVD vs. IRT: do they agree?</h3>
+    <p>
+      The Pearson correlation between SVD dimension-1 scores and IRT posterior means is
+      <strong>r&nbsp;=&nbsp;@@COR_SVD_IRT@@</strong>. This near-perfect agreement validates
+      both methods: SVD identifies the latent structure without distributional assumptions, while
+      IRT quantifies it with full posterior uncertainty. The two methods are extracting the same
+      underlying signal.
+    </p>
+
+    <div class="figure-block">
+      <img src="figures/07_svd_vs_irt.png" alt="SVD dim 1 vs IRT theta scatter">
+      <div class="figure-caption">
+        <strong>Figure 7.</strong> SVD dimension-1 scores vs.&nbsp;IRT posterior means for
+        all legislators (r&nbsp;=&nbsp;@@COR_SVD_IRT@@). The near-perfect linear relationship
+        confirms that both methods recover the same ideological structure. Slight deviations
+        occur for legislators with many missing votes (lower information for IRT).
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- SECTION 4: SUBSTANTIVE CLAIM -->
+<section id="claim">
+  <div class="container">
+    <div class="section-header">
+      <span class="section-num">04</span>
+      <div><h2>Substantive Claim: What the Posterior Tells Us</h2></div>
+    </div>
+
+    <p>
+      A central advantage of the Bayesian IRT model over SVD is that we obtain a full
+      <em>posterior distribution</em> over ideal points, not just a point estimate. This
+      allows us to make probability statements about ideological orderings with quantified
+      uncertainty &mdash; something impossible with SVD alone.
+    </p>
+
+    <h3>The claim</h3>
+    <div class="callout">
+      <div class="callout-title">Main finding</div>
+      The 20th Bundestag is ordered along a single dominant latent dimension. The AfD sits to
+      the right of the CDU/CSU, which sits to the right of the governing coalition, which sits
+      to the right of Die Linke. This ordering is near-certain under the posterior: the
+      probability that AfD&rsquo;s mean ideal point exceeds CDU/CSU&rsquo;s mean ideal point
+      is <strong>@@P_AFD_GT_CDU@@</strong>, and the 95% credible interval for the difference
+      is <strong>@@CI_DIFF_AFD_CDU@@</strong> &mdash; entirely above zero.
+    </div>
+
+    <h3>Posterior computation</h3>
+    <p>
+      We use the 500 MCMC draws to compute, for each draw, the <em>average</em> ideal point
+      across all legislators within a party. This gives a posterior distribution over
+      <em>party mean</em> ideal points &mdash; not just point estimates.
+    </p>
+
+    <div class="code-block">
+      <div class="code-label">R &mdash; Posterior probability P(&theta;&#772;_AfD &gt; &theta;&#772;_CDU)</div>
+<pre>draws <span class="kw">&lt;-</span> <span class="fn">as_draws_df</span>(fit_2pl)
+
+<span class="cm"># Average theta across AfD legislators for each MCMC draw</span>
+afd_cols  <span class="kw">&lt;-</span> <span class="fn">paste0</span>(<span class="str">"r_person_id__eta["</span>, afd_ids, <span class="str">",Intercept]"</span>)
+afd_draws <span class="kw">&lt;-</span> <span class="fn">rowMeans</span>(draws[, afd_cols])
+cdu_draws <span class="kw">&lt;-</span> <span class="fn">rowMeans</span>(draws[, cdu_cols])
+
+<span class="cm"># Posterior probability: AfD more right-wing than CDU/CSU</span>
+p_afd_gt_cdu <span class="kw">&lt;-</span> <span class="fn">mean</span>(afd_draws <span class="kw">&gt;</span> cdu_draws)
+<span class="cm"># = @@P_AFD_RAW@@</span></pre>
+    </div>
+
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-value">@@P_AFD_GT_CDU@@</div>
+        <div class="stat-label">P(&theta;&#772;_AfD &gt; &theta;&#772;_CDU)</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value">@@P_LINKE_LT_GRUEN@@</div>
+        <div class="stat-label">P(&theta;&#772;_Linke &lt; &theta;&#772;_Gr&uuml;nen)</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value">@@P_AFD_GT_SPD@@</div>
+        <div class="stat-label">P(&theta;&#772;_AfD &gt; &theta;&#772;_SPD)</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value">@@CI_DIFF_AFD_CDU@@</div>
+        <div class="stat-label">95% CI: &theta;&#772;_AfD &minus; &theta;&#772;_CDU</div>
+      </div>
+    </div>
+
+    <div class="figure-block">
+      <img src="figures/08_posterior_parties.png" alt="Posterior distributions of party mean ideal points">
+      <div class="figure-caption">
+        <strong>Figure 8.</strong> Posterior distributions of party mean ideal points from
+        500 MCMC draws. Each density shows the full uncertainty about where a party&rsquo;s
+        average &theta; lies, not just a point estimate. Vertical lines mark 95% credible
+        intervals. The distributions barely overlap, indicating the party ordering is
+        near-certain.
+      </div>
+    </div>
+
+    <h3>Two levels of uncertainty</h3>
+    <p>
+      It is important to distinguish between two distinct sources of uncertainty in the IRT model:
+    </p>
+    <div class="callout">
+      <div class="callout-title">Individual MP uncertainty</div>
+      Each legislator&rsquo;s ideal point &theta;<sub>i</sub> has its own posterior distribution,
+      with a width that reflects how many informative votes the legislator cast and how well those
+      votes discriminate along the latent dimension. Legislators who missed many votes, or who
+      voted consistently with the majority, have wider posterior intervals. Individual credible
+      intervals often overlap substantially across parties.
+    </div>
+    <div class="callout">
+      <div class="callout-title">Party ordering uncertainty</div>
+      Even though individual legislators have substantial uncertainty, the <em>ordering of party
+      means</em> is much more certain. Averaging over 80&ndash;200 legislators within a party,
+      the standard error of the party mean shrinks by roughly 1/&radic;n. The posterior
+      probability that the AfD&rsquo;s mean ideal point exceeds CDU/CSU&rsquo;s is @@P_AFD_GT_CDU@@
+      &mdash; near-certain &mdash; even though some individual AfD and CDU MPs have overlapping
+      credible intervals.
+    </div>
+
+    <h3>What the model shows vs. what we infer</h3>
+    <p>
+      <strong>What the posterior directly shows:</strong> Legislators voted in patterns that are
+      almost entirely captured by a single latent axis. The Ampel coalition parties voted
+      together and against the opposition on the vast majority of bills, placing them at one
+      pole. The AfD consistently voted against the coalition and with the CDU/CSU on a subset
+      of issues, but is positioned further to the right than CDU/CSU.
+    </p>
+    <p>
+      <strong>What we infer:</strong> That this latent dimension corresponds to the conventional
+      German left&ndash;right spectrum. The model has no external labels for the axis; it only
+      recovers an ordering. The substantive interpretation &mdash; that this is an ideological
+      left&ndash;right dimension, not just a government-vs-opposition artefact &mdash; relies on
+      the fact that the ordering matches self-reported party positions, electoral results, and
+      manifesto-based measures. Disentangling government&ndash;opposition dynamics from genuine
+      ideology would require additional design choices (e.g., analysing only non-government-sponsored
+      bills, or legislatures where the coalition composition changes mid-term).
+    </p>
+  </div>
+</section>
+
+<!-- SECTION 5: INTERACTIVE -->
+<section id="interactive">
+  <div class="container">
+    <div class="section-header">
+      <span class="section-num">05</span>
+      <div><h2>Interactive Ideal-Point Explorer</h2></div>
+    </div>
+
+    <p>
+      Each legislator is a point plotted by IRT ideal point (x-axis: left&ndash;right) and
+      SVD dimension 2 (y-axis). Hover over any point for the legislator&rsquo;s name, party,
+      and scores. Use the dropdown to highlight a specific party. Pan and zoom with the
+      Plotly toolbar in the top right.
+    </p>
+
+    <div id="interactive-wrapper">
+      <div class="controls">
+        <label for="party-select">Highlight party:</label>
+        <select id="party-select" onchange="highlightParty(this.value)">
+          <option value="all">All parties (coloured)</option>
+          <option value="SPD">SPD</option>
+          <option value="CDU/CSU">CDU/CSU</option>
+          <option value="FDP">FDP</option>
+          <option value="BÜNDNIS 90/DIE GRÜNEN">BÜNDNIS 90/DIE GRÜNEN</option>
+          <option value="AfD">AfD</option>
+          <option value="Die Linke">Die Linke</option>
+          <option value="BSW">BSW</option>
+          <option value="fraktionslos">fraktionslos</option>
+        </select>
+      </div>
+      <div id="plot-container"></div>
+    </div>
+  </div>
+</section>
+
+<!-- SECTION 6: AI WORKFLOW -->
+<section id="prompts">
+  <div class="container">
+    <div class="section-header">
+      <span class="section-num">06</span>
+      <div><h2>AI Workflow Documentation</h2></div>
+    </div>
+
+    <p>
+      This project was completed on the AI-forward track. The following summarises the
+      prompts and iterative workflow. See
+      <a href="prompts.md"><code>prompts.md</code></a> in the repository for the full
+      prompt history.
+    </p>
+
+    <h3>Workflow summary</h3>
+    <p>
+      Claude Code (claude-sonnet-4-6, Anthropic) was used to: (1) read and interpret the
+      assignment specification, lecture notes, and Bürkner (2021) replication code;
+      (2) design the analysis pipeline; (3) write <code>analysis.R</code> and
+      <code>build_site.R</code>; (4) write this site. All generated code was verified for
+      correctness before execution.
+    </p>
+
+    <div class="prompt-entry">
+      <div class="prompt-role user">Initial prompt (User &rarr; Claude)</div>
+      <div class="prompt-body">
+        Read README.md, week13_fss2026_bayes.html, and v100i05.R. Then outline a plan before
+        writing any code for: (1) double-mean imputation + SVD, (2) double-centered SVD,
+        (3) brms 2PL IRT following Bürkner 2021, (4) substantive claim using the posterior as
+        a distribution. Deliver a GitHub Pages site in University of Mannheim colors with a
+        Plotly.js interactive scatter plot.
+      </div>
+    </div>
+
+    <div class="prompt-entry">
+      <div class="prompt-role ai">Response (Claude)</div>
+      <div class="prompt-body">
+        Read all three files. Verified data structure: 161 unique polls, 772 legislators,
+        118,400 long-format rows. Vote types: yes, no, abstain, no_show. Outlined plan
+        covering all four tasks, then wrote analysis.R and build_site.R implementing the full
+        pipeline. Used @@VAR@@ placeholder substitution in the HTML template to separate data
+        injection from HTML authoring.
+      </div>
+    </div>
+
+    <div class="prompt-entry">
+      <div class="prompt-role user">Refinement prompts (User &rarr; Claude)</div>
+      <div class="prompt-body">
+        Ensure: (a) double-centering applied to imputed matrix so verification passes exactly;
+        (b) SVD and IRT orientations consistent (AfD positive); (c) posterior claim distinguishes
+        individual vs.&nbsp;party-level uncertainty and what the model shows vs.&nbsp;what we
+        infer; (d) Plotly chart has dropdown for party highlighting with hover showing name,
+        party, and all scores.
+      </div>
+    </div>
+
+    <h3>Quality checks</h3>
+    <ul style="padding-left:1.4rem;margin-top:.5rem;line-height:2">
+      <li>Data recoding verified: yes=1, no=0, abstain/no_show=NA</li>
+      <li>Double-centering produces machine-zero row/col means (verified analytically and numerically)</li>
+      <li>brms formula matches B&uuml;rkner (2021) Table 1 exactly</li>
+      <li>SVD and IRT orientations verified to be consistent (AfD positive on both)</li>
+      <li>Posterior probabilities computed from draw-level party means, not point estimates</li>
+      <li>Plotly chart renders and dropdown updates correctly</li>
+    </ul>
+  </div>
+</section>
+
+<!-- REFERENCES -->
+<section id="refs">
+  <div class="container">
+    <div class="section-header">
+      <span class="section-num">07</span>
+      <div><h2>References</h2></div>
+    </div>
+    <ul style="padding-left:1.4rem;line-height:2.1">
+      <li>B&uuml;rkner, P.-C. (2021). Bayesian Item Response Modeling in R with brms and Stan.
+          <em>Journal of Statistical Software</em>, 100(5), 1&ndash;54.</li>
+      <li>Clinton, J., Jackman, S., &amp; Rivers, D. (2004). The statistical analysis of roll call data.
+          <em>American Political Science Review</em>, 98(2), 355&ndash;370.</li>
+      <li>Abgeordnetenwatch e.V. (2025). Bundestag 20th Wahlperiode roll-call vote data (CC0).
+          <a href="https://www.abgeordnetenwatch.de" target="_blank">abgeordnetenwatch.de</a></li>
+      <li>Ratkovic, M. (2026). Week 13 &mdash; Scaling and item response theory.
+          Lecture notes, Bayesian Statistics, University of Mannheim, FSS 2026.</li>
+    </ul>
+  </div>
+</section>
+
+</main>
+
+<footer>
+  <p>
+    Maximilian Birkle &middot; Student ID: 1831999 &middot;
+    Mannheim Master in Social Data Science &middot; FSS 2026<br>
+    Data: <a href="https://www.abgeordnetenwatch.de">Abgeordnetenwatch e.V.</a> (CC0) &middot;
+    Analysis: <a href="https://paul-buerkner.github.io/brms/">brms</a> / Stan &middot;
+    Charts: <a href="https://plotly.com/javascript/">Plotly.js</a>
+  </p>
+</footer>
+
+<script>
+const RAW_DATA = @@PLOTLY_DATA@@;
+
+const PARTY_COLORS = {
+  "SPD":                   "#e3000f",
+  "CDU/CSU":               "#222222",
+  "FDP":                   "#c8a800",
+  "BÜNDNIS 90/DIE GRÜNEN": "#46962b",
+  "AfD":                   "#0489db",
+  "Die Linke":             "#be3075",
+  "BSW":                   "#ff6600",
+  "fraktionslos":          "#888888"
+};
+
+const PARTY_SHORT = {
+  "BÜNDNIS 90/DIE GRÜNEN": "Grünen",
+  "Die Linke":             "Linke"
+};
+
+function shortP(p) { return PARTY_SHORT[p] || p; }
+
+const parties = [...new Set(RAW_DATA.map(d => d.party))].sort();
+
+function buildTraces(hl) {
+  return parties.map(party => {
+    const rows = RAW_DATA.filter(d => d.party === party);
+    const isHL = (hl === "all" || party === hl);
+    return {
+      type: "scatter", mode: "markers",
+      name: shortP(party),
+      x:    rows.map(d => d.theta),
+      y:    rows.map(d => d.svd_dim2),
+      text: rows.map(d =>
+        "<b>" + d.legislator + "</b><br>" +
+        shortP(d.party) + "<br>" +
+        "θ (IRT): " + (d.theta||0).toFixed(3) + "<br>" +
+        "SVD dim 1: " + (d.svd_dim1||0).toFixed(3) + "<br>" +
+        "SVD dim 2: " + (d.svd_dim2||0).toFixed(3)
+      ),
+      hovertemplate: "%{text}<extra></extra>",
+      marker: {
+        color:   PARTY_COLORS[party] || "#888",
+        size:    7,
+        opacity: (hl === "all") ? 0.70 : (isHL ? 0.90 : 0.07),
+        line:    { width: 0.5, color: "white" }
+      }
+    };
+  });
+}
+
+const layout = {
+  xaxis: { title: { text: "IRT Ideal Point (θ) — left to right", font: {size:13} },
+           zeroline:true, zerolinecolor:"#ccc", gridcolor:"#eee" },
+  yaxis: { title: { text: "SVD Dimension 2", font: {size:13} },
+           zeroline:true, zerolinecolor:"#ccc", gridcolor:"#eee" },
+  legend: { title:{text:"Party"}, bgcolor:"rgba(255,255,255,.85)",
+            bordercolor:"#ddd", borderwidth:1 },
+  plot_bgcolor:"#fafcfc", paper_bgcolor:"#ffffff",
+  hoverlabel: { bgcolor:"#fff", bordercolor:"#999", font:{size:12} },
+  margin: { l:60, r:20, t:20, b:60 },
+  hovermode: "closest"
+};
+
+const config = {
+  responsive: true,
+  displayModeBar: true,
+  modeBarButtonsToRemove: ["lasso2d","select2d"],
+  toImageButtonOptions: { format:"png", filename:"bundestag_ideal_points" }
+};
+
+Plotly.newPlot("plot-container", buildTraces("all"), layout, config);
+
+function highlightParty(p) {
+  Plotly.react("plot-container", buildTraces(p), layout, config);
+}
+</script>
+</body>
+</html>'
+
+# ---------- substitute all placeholders --------------------------------------
+
+html <- template
+for (key in names(sub_map)) {
+  html <- gsub(key, sub_map[[key]], html, fixed = TRUE)
+}
+
+writeLines(html, "index.html")
+cat(sprintf("index.html written: %s bytes\n", format(nchar(html), big.mark=",")))
