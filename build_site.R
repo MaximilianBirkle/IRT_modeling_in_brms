@@ -441,9 +441,9 @@ footer p+p{margin-top:.6rem;font-size:.8rem;opacity:.8}
     </div>
     <h1 class="hero-title">Scaling the Bundestag: Ideal-Point Estimation from Roll-Call Votes</h1>
     <div class="hero-pills">
-      <a class="hero-pill" href="https://www.bundestag.de/en" target="_blank" rel="noopener">20th Bundestag</a>
-      <a class="hero-pill" href="https://en.wikipedia.org/wiki/Scholz_cabinet" target="_blank" rel="noopener">2021&ndash;2025</a>
-      <span class="hero-pill">Ampel Coalition</span>
+      <a class="hero-pill" href="https://www.bundestag.de/parlament/aufgaben/elections/bt20" target="_blank" rel="noopener">20th Bundestag</a>
+      <a class="hero-pill" href="https://en.wikipedia.org/wiki/20th_Bundestag" target="_blank" rel="noopener">2021&ndash;2025</a>
+      <a class="hero-pill" href="https://en.wikipedia.org/wiki/Scholz_cabinet" target="_blank" rel="noopener">Ampel Coalition</a>
     </div>
     <p class="hero-course">DS 201 &middot; Bayesian Statistics &middot; University of Mannheim &middot; FSS 2026</p>
     <div class="hero-stats" id="hero-stats">
