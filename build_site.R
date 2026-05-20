@@ -188,21 +188,6 @@ li{margin-bottom:.25rem}
   background-image:radial-gradient(circle, rgba(255,255,255,.045) 1px, transparent 1px);
   background-size:28px 28px;
 }
-.hero-eagle{
-  position:absolute;top:50%;left:50%;
-  transform:translate(-50%,-50%);
-  width:65%;max-width:680px;height:auto;
-  opacity:0.07;
-  filter:invert(1) brightness(1.5);
-  mix-blend-mode:screen;
-  pointer-events:none;
-  animation:eagle-breathe 8s ease-in-out infinite;
-  object-fit:contain;
-}
-@keyframes eagle-breathe{
-  0%,100%{transform:translate(-50%,-50%) scale(1.0)}
-  50%{transform:translate(-50%,-50%) scale(1.03)}
-}
 .hero-inner{
   position:relative;z-index:2;
   max-width:900px;margin:0 auto;padding:4rem 2rem 6rem;
@@ -216,7 +201,9 @@ li{margin-bottom:.25rem}
   animation:fade-up 640ms var(--ease-out) 80ms both;
 }
 .hero-pills{display:flex;justify-content:center;gap:.6rem;flex-wrap:wrap;margin-bottom:1.2rem;animation:fade-up 640ms var(--ease-out) 160ms both}
-.hero-pill{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);border-radius:20px;padding:.25rem .9rem;font-size:.78rem;font-weight:500;letter-spacing:.03em;color:rgba(255,255,255,.9)}
+.hero-pill{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);border-radius:20px;padding:.25rem .9rem;font-size:.78rem;font-weight:500;letter-spacing:.03em;color:rgba(255,255,255,.9);text-decoration:none;display:inline-block}
+a.hero-pill{transition:filter .18s,border-color .18s}
+a.hero-pill:hover{filter:brightness(1.3);border-color:rgba(255,255,255,.5)}
 .hero-course{font-size:.83rem;color:rgba(255,255,255,.55);margin-bottom:2.5rem;animation:fade-up 640ms var(--ease-out) 220ms both}
 .hero-stats{
   display:grid;grid-template-columns:repeat(4,1fr);gap:1.2rem;
@@ -446,7 +433,6 @@ footer p+p{margin-top:.6rem;font-size:.8rem;opacity:.8}
 <!-- HERO -->
 <header class="hero" id="top">
   <div class="hero-dots" aria-hidden="true"></div>
-  <img src="bundestag.jpg" class="hero-eagle" alt="" aria-hidden="true">
   <div class="hero-inner">
     <div class="hero-logo">
       <a href="https://www.uni-mannheim.de" target="_blank" rel="noopener">
@@ -455,8 +441,8 @@ footer p+p{margin-top:.6rem;font-size:.8rem;opacity:.8}
     </div>
     <h1 class="hero-title">Scaling the Bundestag: Ideal-Point Estimation from Roll-Call Votes</h1>
     <div class="hero-pills">
-      <span class="hero-pill">20th Bundestag</span>
-      <span class="hero-pill">2021&ndash;2025</span>
+      <a class="hero-pill" href="https://www.bundestag.de/en" target="_blank" rel="noopener">20th Bundestag</a>
+      <a class="hero-pill" href="https://en.wikipedia.org/wiki/Scholz_cabinet" target="_blank" rel="noopener">2021&ndash;2025</a>
       <span class="hero-pill">Ampel Coalition</span>
     </div>
     <p class="hero-course">DS 201 &middot; Bayesian Statistics &middot; University of Mannheim &middot; FSS 2026</p>
